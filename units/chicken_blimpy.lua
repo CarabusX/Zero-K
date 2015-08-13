@@ -128,7 +128,7 @@ unitDef = {
 
 
     BOMBTRIGGER = {
-      name                    = [[BOMBTRIGGER]],
+      name                    = [[Bogus BOMBTRIGGER]],
       accuracy                = 12000,
       areaOfEffect            = 1,
       beamTime                = 0.1,
@@ -157,7 +157,6 @@ unitDef = {
       reloadtime              = 14,
       renderType              = 0,
       rgbColor                = [[0 0 0]],
-      targetMoveError         = 0,
       thickness               = 0,
       tolerance               = 10000,
       turret                  = true,
@@ -178,6 +177,11 @@ unitDef = {
       collideFriendly         = false,
       craterBoost             = 0,
       craterMult              = 0,
+      
+      customparams            = {
+      	spawns_name = "chicken_dodo",
+      	spawns_expire = 30,
+      },
 
       damage                  = {
         default = 1,
@@ -205,7 +209,6 @@ unitDef = {
       smokeTrail              = false,
       startsmoke              = [[1]],
       startVelocity           = 200,
-      targetMoveError         = 0.2,
       tolerance               = 8000,
       tracks                  = false,
       turnRate                = 4000,

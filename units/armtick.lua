@@ -37,6 +37,7 @@ unitDef = {
 
     modelradius    = [[7]],
     instantselfd   = [[1]],
+    idle_cloak = 1,
   },
 
   explodeAs              = [[ARMTICK_DEATH]],
@@ -68,7 +69,7 @@ unitDef = {
 
   },
 
-  sightDistance          = 160,
+  sightDistance          = 240,
   turnRate               = 3000,
   
   featureDefs            = {

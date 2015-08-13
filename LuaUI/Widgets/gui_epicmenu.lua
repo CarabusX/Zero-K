@@ -1,7 +1,7 @@
 function widget:GetInfo()
   return {
     name      = "EPIC Menu",
-    desc      = "v1.435 Extremely Powerful Ingame Chili Menu.",
+    desc      = "v1.438 Extremely Powerful Ingame Chili Menu.",
     author    = "CarRepairer",
     date      = "2009-06-02", --2014-05-3
     license   = "GNU GPL, v2 or later",
@@ -28,6 +28,17 @@ include("utility_two.lua") --contain file backup function
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
+if not WG.lang then
+	local lang
+	WG.lang=function(l)
+				if not l then
+					return lang
+				else
+					lang=l
+				end
+			end
+end
+
 
 local spGetConfigInt    		= Spring.GetConfigInt
 local spSendCommands			= Spring.SendCommands
@@ -110,7 +121,7 @@ local explodeSearchTerm = {text="", terms={}} -- store exploded "filterUserInser
 --------------------------------------------------------------------------------
 -- Misc
 local B_HEIGHT = 26
-local B_WIDTH_TOMAINMENU = 80 --100 --160
+local B_WIDTH_TOMAINMENU = 80
 local C_HEIGHT = 16
 
 local scrH, scrW = 0,0
@@ -497,8 +508,13 @@ local function WidgetEnabled(wname)
 	return order and (order > 0)
 end
 
-local function AmIPlayingAlone() --I am playing and playing alone with no other player existing
+-- by default it allows if player is not spectating and there are no other players
+
+local function AllowPauseOnMenuChange()
 	if Spring.GetSpectatingState() then
+		return false
+	end
+	if settings.config['epic_Settings/Misc_Menu_pauses_in_SP'] == false then
 		return false
 	end
 	local playerlist = Spring.GetPlayerList() or {}
@@ -535,7 +551,7 @@ local function KillSubWindow(makingNew)
 		window_sub_cur:Dispose()
 		window_sub_cur = nil
 		curPath = ''
-		if not makingNew and AmIPlayingAlone() then
+		if not makingNew and AllowPauseOnMenuChange() then
 			local paused = select(3, Spring.GetGameSpeed())
 			if paused then
 				spSendCommands("pause")
@@ -551,12 +567,24 @@ local function checkWidget(widget)
 	end
 end
 
+VFS.Include("LuaUI/Utilities/json.lua");
+
+local function UTF8SupportCheck()
+	local version=Game.version
+	local first_dot=string.find(version,"%.")
+	local major_version = (first_dot and string.sub(version,0,first_dot-1)) or version
+	local major_version_number = tonumber(major_version)
+	return major_version_number>=98
+end
+local UTF8SUPPORT = UTF8SupportCheck()
 
 local function SetLangFontConf()
-	if VFS.FileExists("Luaui/Configs/nonlatin/"..WG.lang..".lua", VFS.ZIP) then
-		WG.langFontConf = include("Configs/nonlatin/"..WG.lang..".lua")
-		WG.langFont = WG.langFontConf.font
+	if UTF8SUPPORT and VFS.FileExists("Luaui/Configs/nonlatin/"..WG.lang()..".json", VFS.ZIP) then
+		WG.langData = Spring.Utilities.json.decode(VFS.LoadFile("Luaui/Configs/nonlatin/"..WG.lang()..".json", VFS.ZIP))
+		WG.langFont = nil
+		WG.langFontConf = nil
 	else
+		WG.langData = nil
 		WG.langFont = nil
 		WG.langFontConf = nil
 	end
@@ -568,7 +596,9 @@ local function SetCountry(self)
 	WG.country = self.country
 	settings.country = self.country
 	
-	WG.lang = self.countryLang 
+	if WG.lang then
+		WG.lang(self.countryLang)
+	end
 	SetLangFontConf()
 	
 	settings.lang = self.countryLang
@@ -952,6 +982,7 @@ local function AddOption(path, option, wname ) --Note: this is used when loading
 				MakeSubWindow(path2, false)  --this made this button open another menu
 			end,
 			desc=path2,
+			isDirectoryButton = true,
 		}
 		
 		if path == '' and path2 == '' then --prevent adding '...' button on '' (Main Menu)
@@ -1072,7 +1103,7 @@ local function AddOption(path, option, wname ) --Note: this is used when loading
 				option.value = item.value
 				settings.config[fullkey] = option.value
 				
-				if (path == curPath) or filterUserInsertedTerm~='' then --search window will always need to show options in wrong path and we have to refresh the window to show changes
+				if (path == curPath) or filterUserInsertedTerm~='' then --we need to refresh the window to show changes, and current path is irrelevant if we are doing search
 					MakeSubWindow(curPath, false) --remake window to update the buttons' visuals when pressed
 				end
 			end
@@ -1091,7 +1122,8 @@ local function AddOption(path, option, wname ) --Note: this is used when loading
 	end
 	
 	--Keybindings
-	if option.type == 'button' or option.type == 'bool' then
+	if (option.type == 'button' and not option.isDirectoryButton) or option.type == 'bool' then
+		if (not option.dontRegisterAction) then
 		local actionName = GetActionName(path, option)
 		
 		--migrate from old logic, make sure this is done before setting orig_key
@@ -1106,7 +1138,7 @@ local function AddOption(path, option, wname ) --Note: this is used when loading
 		end
 		
 		CreateOptionAction(path, option)
-		
+		end
 	--Keybinds for radiobuttons
 	elseif option.type == 'radioButton' then --if its a list of checkboxes:
 		for i=1, #option.items do --prepare keybinds for each of radioButton's checkbox
@@ -1385,43 +1417,59 @@ local function GetHotkeyData(path, option)
 end
 
 --Make a stack with control and its hotkey button
-local function MakeHotkeyedControl(control, path, option, icon)
+local function MakeHotkeyedControl(control, path, option, icon, noHotkey)
 
-	local hotkeystring = GetHotkeyData(path, option)
-	local kbfunc = function() 
-			if not get_key then
-				MakeKeybindWindow( path, option ) 
-			end
-		end
-
-	local hklength = math.max( hotkeystring:len() * 10, 20)
-	local control2 = control
-	control.x = 0
-	if icon then
-		control.x = 20
-	end
-	control.right = hklength+2 --room for hotkey button on right side?
-	control:DetectRelativeBounds()
-	
-	local hkbutton = Button:New{
-		name = option.wname .. ' hotKeyButton';
-		minHeight = 30,
-		right=0,
-		width = hklength,
-		caption = hotkeystring, 
-		OnClick = { kbfunc },
-		backgroundColor = color.sub_button_bg,
-		textColor = color.sub_button_fg, 
-		tooltip = 'Hotkey: ' .. hotkeystring,
-	}
-	
 	local children = {}
-	if icon then
-		local iconImage = Image:New{ file= icon, width = 16,height = 16, }
-		children = { iconImage, }
+	if noHotkey then
+		control.x = 0
+		if icon then
+			control.x = 20
+		end
+		control.right = 2
+		control:DetectRelativeBounds()
+			
+		if icon then
+			local iconImage = Image:New{ file= icon, width = 16,height = 16, }
+			children = { iconImage, }
+		end
+		children[#children+1] = control	
+	else
+		local hotkeystring = GetHotkeyData(path, option)
+		local kbfunc = function() 
+				if not get_key then
+					MakeKeybindWindow( path, option ) 
+				end
+			end
+
+		local hklength = math.max( hotkeystring:len() * 10, 20)
+		local control2 = control
+		control.x = 0
+		if icon then
+			control.x = 20
+		end
+		control.right = hklength+2 --room for hotkey button on right side
+		control:DetectRelativeBounds()
+		
+		local hkbutton = Button:New{
+			name = option.wname .. ' hotKeyButton';
+			minHeight = 30,
+			right=0,
+			width = hklength,
+			caption = hotkeystring, 
+			OnClick = { kbfunc },
+			backgroundColor = color.sub_button_bg,
+			textColor = color.sub_button_fg, 
+			tooltip = 'Hotkey: ' .. hotkeystring,
+		}
+		
+		--local children = {}
+		if icon then
+			local iconImage = Image:New{ file= icon, width = 16,height = 16, }
+			children = { iconImage, }
+		end
+		children[#children+1] = control
+		children[#children+1] = hkbutton
 	end
-	children[#children+1] = control
-	children[#children+1] = hkbutton
 	
 	return Panel:New{
 		width = "100%",
@@ -1476,7 +1524,7 @@ end
 local function SearchElement(termToSearch,path)
 	local filtered_pathOptions = {}
 	local tree_children = {} --used for displaying buttons
-	local maximumResult = 18 --maximum result to display. Any more it will just say "too many"
+	local maximumResult = 23 --maximum result to display. Any more it will just say "too many"
 	
 	local DiggDeeper = function() end --must declare itself first before callin self within self
 	DiggDeeper = function(currentPath)
@@ -1545,6 +1593,7 @@ local function SearchElement(termToSearch,path)
 						local found = SearchInText(lowercase_name,termToSearch) or SearchInText(lowercase_desc,termToSearch)
 						if found then
 							filtered_pathOptions[#filtered_pathOptions+1] = {currentPath,option}
+							break;
 						end
 					end
 				end
@@ -1610,21 +1659,20 @@ MakeSubWindow = function(path, pause)
 	local root = path == ''
 	
 	local searchedElement
-	if filterUserInsertedTerm ~= "" then --this check whether window is remake during Searching or not.
-		-- MakeSubWindowSearch(path) --if Search term is being used then remake the Search window instead of normal window
-		-- return 
-		parent_path = path --we go back to HERE if we go back after searching
+	if filterUserInsertedTerm ~= "" then --this check whether window is a remake for Searching or not.
+		--if Search term is being used then remake the Search window instead of normal window
+		parent_path = path --User go "back" (back button) to HERE if we go "back" after searching
 		searchedElement,tree_children = SearchElement(filterUserInsertedTerm,path)
 	end
 	
-	local listOfElements = searchedElement or pathoptions[path] --show search result or all
+	local listOfElements = searchedElement or pathoptions[path] --show search result or show all
 	local pathLabeling = searchedElement and ""
 	for _,elem in ipairs(listOfElements) do
 		local option = elem[2]
 		local currentPath
 		if pathLabeling then
-			currentPath = elem[1] --since search has mixed path, the first entry in "listOfElements[index]" table will store path (in contrast: first entry in "pathoptions[path]" table only store indexes)
-			if pathLabeling ~= currentPath then --add label saying where this option is found
+			currentPath = elem[1] --note: during search mode the first entry in "listOfElements[index]" table will contain search result's path, in normal mode the first entry in "pathoptions[path]" table will contain indexes.
+			if pathLabeling ~= currentPath then --add label which shows where this option is found
 				local sub_path = currentPath:gsub(path,"") --remove root
 				-- tree_children[#tree_children+1] = Label:New{ caption = "- Location: " .. sub_path,  textColor = color.tooltip_bg, }
 				tree_children[#tree_children+1] = Button:New{
@@ -1649,7 +1697,7 @@ MakeSubWindow = function(path, pause)
 		
 		local optionkey = option.key
 		
-		--fixme: shouldn't be needed
+		--fixme: shouldn't be needed (?)
 		if not option.OnChange then
 			option.OnChange = function(self) end
 		end
@@ -1672,8 +1720,8 @@ MakeSubWindow = function(path, pause)
 				end
 			end
 			
-			if not hide then
-				local escapeSearch = searchedElement and option.desc and option.desc:find(currentPath) and option.name:find("...")--this type of button is a shortcut to somewhere else (defined in "AddOption(path,option,wname)")
+			if not hide then 
+				local escapeSearch = searchedElement and option.desc and option.desc:find(currentPath) and option.isDirectoryButton --this type of button will open sub-level when pressed (defined in "AddOption(path, option, wname )")
 				local disabled = option.DisableFunc and option.DisableFunc()
 				local icon = option.icon
 				local button = Button:New{
@@ -1693,7 +1741,7 @@ MakeSubWindow = function(path, pause)
 					local width = root and 24 or 16
 					Image:New{ file= icon, width = width, height = width, parent = button, x=4,y=4,  }
 				end
-				tree_children[#tree_children+1] = MakeHotkeyedControl(button, path, option)
+				tree_children[#tree_children+1] = MakeHotkeyedControl(button, path, option,nil,option.isDirectoryButton )
 			end
 			
 		elseif option.type == 'label' then	
@@ -1791,7 +1839,7 @@ MakeSubWindow = function(path, pause)
 				local cb = Checkbox:New{
 					--x=0,
 					right = 35,
-					caption = item.name, --caption
+					caption = '  ' .. item.name, --caption
 					checked = (option.value == item.value), --status
 					OnClick = {function(self) option.OnChange(item) end},
 					textColor = color.sub_fg,
@@ -1801,6 +1849,7 @@ MakeSubWindow = function(path, pause)
 				tree_children[#tree_children+1] = MakeHotkeyedControl( cb, path, item, icon)
 					
 			end
+			tree_children[#tree_children+1] = Label:New{ caption = '', }
 		elseif option.type == 'colors' then
 			settings_height = settings_height + B_HEIGHT*2.5
 			tree_children[#tree_children+1] = Label:New{ caption = option.name, textColor = color.sub_fg, }
@@ -1816,7 +1865,7 @@ MakeSubWindow = function(path, pause)
 		end
 	end
 	
-	local window_height = 400
+	local window_height = min(400, scrH - B_HEIGHT*6)
 	if settings_height < window_height then
 		window_height = settings_height+10
 	end
@@ -1943,7 +1992,7 @@ MakeSubWindow = function(path, pause)
 		children = window_children,
 	}
 	AdjustWindow(window_sub_cur)
-	if pause and AmIPlayingAlone() then
+	if pause and AllowPauseOnMenuChange() then
 		local paused = select(3, Spring.GetGameSpeed())
 		if not paused then
 			spSendCommands("pause")
@@ -1962,7 +2011,7 @@ local function ShowHideCrudeMenu(dontChangePause)
 		end
 		if window_sub_cur then
 			screen0:AddChild(window_sub_cur)
-			if (not dontChangePause) and AmIPlayingAlone() then
+			if (not dontChangePause) and AllowPauseOnMenuChange() then
 				local paused = select(3, Spring.GetGameSpeed())
 				if (not paused) and (not window_exit_confirm) then
 					spSendCommands("pause")
@@ -1976,7 +2025,7 @@ local function ShowHideCrudeMenu(dontChangePause)
 		end
 		if window_sub_cur then
 			screen0:RemoveChild(window_sub_cur)
-			if (not dontChangePause) and AmIPlayingAlone() then
+			if (not dontChangePause) and AllowPauseOnMenuChange() then
 				local paused = select(3, Spring.GetGameSpeed())
 				if paused and (not window_exit_confirm) then
 					spSendCommands("pause")
@@ -2301,7 +2350,7 @@ local function MakeQuitButtons()
 				if not (isMission or Spring.GetSpectatingState()) then
 					MakeExitConfirmWindow("Are you sure you want to resign?", function() 
 						local paused = select(3, Spring.GetGameSpeed())
-						if (paused) and AmIPlayingAlone() then
+						if (paused) and AllowPauseOnMenuChange() then
 							spSendCommands("pause")
 						end
 						spSendCommands{"spectator"} 
@@ -2320,10 +2369,10 @@ local function MakeQuitButtons()
 		OnChange = function() 
 			MakeExitConfirmWindow("Are you sure you want to quit the game?", function()
 				local paused = select(3, Spring.GetGameSpeed())
-				if (paused) and AmIPlayingAlone() then
+				if (paused) and AllowPauseOnMenuChange() then
 					spSendCommands("pause")
 				end
-				spSendCommands{"quit","quitforce"} 
+				spSendCommands{"spectator","quit","quitforce"} 
 			end)
 		end,
 		key='Exit to Desktop',
@@ -2405,7 +2454,7 @@ function widget:Initialize()
 	end
 	
 	WG.country = settings.country	
-	WG.lang = settings.lang
+	WG.lang(settings.lang)
 	SetLangFontConf()
 	
 		-- add custom widget settings to crudemenu
@@ -2593,8 +2642,8 @@ function widget:Initialize()
 	init = false
 	
 	--intialize remote menu trigger
-	WG.crude.OpenPath = function(path) --Note: declared here so that it work in local copy
-		MakeSubWindow(path)	-- FIXME should pause the game
+	WG.crude.OpenPath = function(path, pause) --Note: declared here so that it work in local copy
+		MakeSubWindow(path, pause)	-- FIXME should pause the game
 	end
 	
 	--intialize remote menu trigger 2

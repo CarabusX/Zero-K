@@ -45,6 +45,7 @@ unitDef = {
 	soundbuild = [[builder_start]],
 	commtype = [[1]],
 	--decorationicons = {chest = "friendly", shoulders = "arrows-dot"},
+    aimposoffset   = [[0 5 0]],
   },
 
   energyMake             = 6,
@@ -149,7 +150,6 @@ unitDef = {
       soundStart              = [[weapon/laser/laser_burn5]],
       soundTrigger            = true,
       sweepfire               = false,
-      targetMoveError         = 0.05,
       texture1                = [[largelaser]],
       texture2                = [[flare]],
       texture3                = [[flare]],
@@ -172,7 +172,7 @@ unitDef = {
       craterMult              = 0,
 
       damage                  = {
-        default = 15.5,
+        default = 15.06,
         subs    = 0.8,
       },
 
@@ -192,7 +192,6 @@ unitDef = {
       rgbColor                = [[0 1 1]],
       soundStart              = [[weapon/laser/pulse_laser3]],
       soundTrigger            = true,
-      targetMoveError         = 0.05,
       texture1                = [[largelaser]],
       texture2                = [[flare]],
       texture3                = [[flare]],

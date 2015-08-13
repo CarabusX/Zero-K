@@ -9,6 +9,8 @@ local aimProxy = piece("AimProxy");
 
 local spGetUnitRulesParam 	= Spring.GetUnitRulesParam
 local spGetUnitIsStunned = Spring.GetUnitIsStunned
+local spGetUnitHealth = Spring.GetUnitHealth
+local spSetUnitHealth = Spring.SetUnitHealth
 
 local unpackSpeed = 5;
 
@@ -18,8 +20,10 @@ local smokePiece = { lidLeft, lidRight, wheel}
 local is_open = false
 local restore_delay = 2000;
 
+local BUNKERED_AUTOHEAL = tonumber (UnitDef.customParams.armored_regen or 20) / 2 -- applied every 0.5s
+
 --signals
-local aim  = 2
+local aim = 2
 local open = 8
 local close = 16
 
@@ -65,7 +69,8 @@ end
 
 --closing animation of the factory
 local function Close()
-	Signal( aim )
+	Signal(aim)
+	Signal(close)
 	Signal(open) --kill the opening animation if it is in process
 	SetSignalMask(close) --set the signal to kill the closing animation
 	is_open = false;
@@ -95,6 +100,16 @@ local function Close()
 
 	Spring.SetUnitArmored(unitID,true);
 
+	while true do
+		local stunned_or_inbuild = spGetUnitIsStunned(unitID) or (spGetUnitRulesParam(unitID, "disarmed") == 1)
+		if not stunned_or_inbuild then
+			local hp = spGetUnitHealth(unitID)
+			local slowMult = 1 - (spGetUnitRulesParam(unitID,"slowState") or 0)
+			local newHp = hp + slowMult*BUNKERED_AUTOHEAL
+			spSetUnitHealth(unitID, newHp)
+		end
+		Sleep(500)
+	end
 end
 
 function RestoreAfterDelay()
@@ -113,13 +128,13 @@ end
 -- event handlers
 
 
-function script.Activate ( )
-	StartThread( Open )
+function script.Activate ()
+	StartThread(Open)
 end
 
-function script.Deactivate ( )
+function script.Deactivate ()
 	is_open = false
-	StartThread( Close )
+	StartThread(Close)
 end
 
 function script.Create()
@@ -139,11 +154,11 @@ function script.AimFromWeapon(n)
 	return aimProxy 
 end
 
-function script.AimWeapon(num, heading, pitch )
-	Signal( aim )
-	SetSignalMask( aim )
+function script.AimWeapon(num, heading, pitch)
+	Signal(aim)
+	SetSignalMask(aim)
 	
-	Turn( belt,  z_axis, heading, math.rad(200));
+	Turn(belt, z_axis, heading, math.rad(200));
 	
 	if (not is_open) then
 		StartThread(Open);
@@ -153,12 +168,12 @@ function script.AimWeapon(num, heading, pitch )
 		end
 	end
 
-	--Turn( cannon, y_axis, heading, 1.2 )
-	Turn( belt,  z_axis, heading, math.rad(200));
-	Turn( wheel, x_axis, -math.rad(30), math.rad(200));
-	Turn( arm, x_axis, math.rad(30),10);
-	Turn( hand, x_axis, math.rad(30),10);
-	Turn( cannon, x_axis, -pitch-math.rad(33),10);
+	--Turn(cannon, y_axis, heading, 1.2)
+	Turn(belt, z_axis, heading, math.rad(200));
+	Turn(wheel, x_axis, -math.rad(30), math.rad(200));
+	Turn(arm, x_axis, math.rad(30),10);
+	Turn(hand, x_axis, math.rad(30),10);
+	Turn(cannon, x_axis, -pitch-math.rad(33),10);
 	 
 	WaitForTurn (belt, z_axis)
 	WaitForTurn (wheel, x_axis)

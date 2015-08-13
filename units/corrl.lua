@@ -24,7 +24,6 @@ unitDef = {
   corpse                        = [[DEAD]],
 
   customParams                  = {
-    usetacai       = [[1]],
     description_fr = [[Tourelle Lance-Missile Légcre]],
 	description_de = [[Leichter Raketenturm (Flugabwehr/Skirmish)]],
 	description_pl = [[Lekka wieza rakietowa]],
@@ -44,6 +43,7 @@ unitDef = {
   idleAutoHeal                  = 5,
   idleTime                      = 1800,
   levelGround                   = false,
+  losEmitHeight                 = 40,
   mass                          = 94,
   maxDamage                     = 300,
   maxSlope                      = 36,
@@ -52,6 +52,7 @@ unitDef = {
   noAutoFire                    = false,
   noChaseCategory               = [[FIXEDWING LAND SINK TURRET SHIP SATELLITE SWIM GUNSHIP FLOAT SUB HOVER]],
   objectName                    = [[lmt2.s3o]],
+  script                        = [[corrl.lua]],
   seismicSignature              = 4,
   selfDestructAs                = [[BIG_UNITEX]],
 
@@ -102,7 +103,7 @@ unitDef = {
 	  },
 
       damage                  = {
-        default = 105,
+        default = 104,
         subs    = 7.5,
       },
 
@@ -150,7 +151,7 @@ unitDef = {
       category         = [[corpses]],
       damage           = 300,
       energy           = 0,
-      featureDead      = [[DEAD2]],
+      featureDead      = [[HEAP]],
       featurereclamate = [[SMUDGE01]],
       footprintX       = 3,
       footprintZ       = 3,
@@ -158,27 +159,6 @@ unitDef = {
       hitdensity       = [[100]],
       metal            = 32,
       object           = [[Pulverizer_d.s3o]],
-      reclaimable      = true,
-      reclaimTime      = 32,
-      seqnamereclamate = [[TREE1RECLAMATE]],
-      world            = [[All Worlds]],
-    },
-
-
-    DEAD2 = {
-      description      = [[Debris - Defender]],
-      blocking         = false,
-      category         = [[heaps]],
-      damage           = 300,
-      energy           = 0,
-      featureDead      = [[HEAP]],
-      featurereclamate = [[SMUDGE01]],
-      footprintX       = 3,
-      footprintZ       = 3,
-      height           = [[4]],
-      hitdensity       = [[100]],
-      metal            = 32,
-      object           = [[debris3x3b.s3o]],
       reclaimable      = true,
       reclaimTime      = 32,
       seqnamereclamate = [[TREE1RECLAMATE]],

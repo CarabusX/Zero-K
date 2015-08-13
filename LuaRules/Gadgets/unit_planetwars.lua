@@ -1,3 +1,10 @@
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+if not gadgetHandler:IsSyncedCode() then
+	return
+end
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 function gadget:GetInfo()
 	return {
 		name = "Planet Wars Structures",
@@ -10,11 +17,6 @@ function gadget:GetInfo()
 	}
 end
 
-------------------------------------------------------------------------
-------------------------------------------------------------------------
-if (not gadgetHandler:IsSyncedCode()) then
-	return
-end
 ------------------------------------------------------------------------
 ------------------------------------------------------------------------
 --local defenderTeam = nil
@@ -196,7 +198,6 @@ local function spawnStructures(left, top, right, bottom, team)
 	local xRand = mapWidth*(right-left)
 	local zBase = mapHeight*top
 	local zRand = mapHeight*(bottom-top)
-	
 	for _,info in pairs(unitData) do
 		if type(info) == "table" then
 			Spring.Echo("Processing PW structure: "..info.unitname)
@@ -241,7 +242,7 @@ local function spawnStructures(left, top, right, bottom, team)
 					giveUp = giveUp + 1
 				end
 				
-				local unitID = Spring.CreateUnit(info.unitname, x, spGetGroundHeight(x,z), z, direction, teamID)
+				local unitID = Spring.CreateUnit(info.unitname, x, spGetGroundHeight(x,z), z, direction, teamID, false, false)
 				Spring.SetUnitNeutral(unitID,true)
 				Spring.InsertUnitCmdDesc(unitID, 500, abandonCMD)
 				unitsByID[unitID] = {name = info.unitname, teamDamages = {}}
@@ -302,18 +303,32 @@ end
 
 function gadget:GamePreload()
 	local box = {[0] = {}, [1] = {}}
-	box[0].left, box[0].top, box[0].right, box[0].bottom  = Spring.GetAllyTeamStartBox(0)
-	box[1].left, box[1].top, box[1].right, box[1].bottom = Spring.GetAllyTeamStartBox(1)
 	
-	if not (box[0].left) then
-		box[0].left, box[0].top, box[0].right, box[0].bottom = 0, 0, mapWidth, mapHeight
+	local startboxString = Spring.GetModOptions().startboxes
+	if not startboxString then -- legacy boxes
+		box[0].left, box[0].top, box[0].right, box[0].bottom  = Spring.GetAllyTeamStartBox(0)
+		box[1].left, box[1].top, box[1].right, box[1].bottom = Spring.GetAllyTeamStartBox(1)
+		
+		if not (box[0].left) then
+			box[0].left, box[0].top, box[0].right, box[0].bottom = 0, 0, mapWidth, mapHeight
+		end
+		if not (box[1].left) then
+			box[1].left, box[1].top, box[1].right, box[1].bottom = 0, 0, mapWidth, mapHeight
+		end
+		
+		normaliseBoxes(box[0])
+		normaliseBoxes(box[1])
+	else
+		local startboxConfig = loadstring(startboxString)()
+
+		local teamList = Spring.GetTeamList(0)
+		local boxID = Spring.GetTeamRulesParam(teamList[1], "start_box_id")
+		box[0] = boxID and startboxConfig[boxID] or {0,0,1,1}
+
+		teamList = Spring.GetTeamList(1)
+		boxID = Spring.GetTeamRulesParam(teamList[1], "start_box_id")
+		box[1] = boxID and startboxConfig[boxID] or {0,0,1,1}
 	end
-	if not (box[1].left) then
-		box[1].left, box[1].top, box[1].right, box[1].bottom = 0, 0, mapWidth, mapHeight
-	end
-	
-	normaliseBoxes(box[0])
-	normaliseBoxes(box[1])
 
 	-- spawn PW planet structures
 	if defenderFaction then
@@ -438,7 +453,9 @@ end
 function gadget:AllowCommand(unitID, unitDefID, unitTeam, cmdID, cmdParams, cmdOptions)
 	if unitsByID[unitID] and cmdID == CMD_ABANDON_PW then
 		local gaiaTeam = Spring.GetGaiaTeamID()
+		GG.allowTransfer = true
 		Spring.TransferUnit(unitID, gaiaTeam, true)
+		GG.allowTransfer = false
 		Spring.SetUnitNeutral(unitID, true)
 		return false
 	elseif cmdID == CMD.ATTACK and #cmdParams == 1 then

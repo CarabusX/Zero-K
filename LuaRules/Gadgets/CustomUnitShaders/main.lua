@@ -30,6 +30,26 @@ end
 
 
 if (gadgetHandler:IsSyncedCode()) then
+  
+  --// block first try, so we have enough time to disable the lua UnitRendering
+  --// else the model would be invisible for 1 gameframe
+  local blockFirst = {}
+  function gadget:AllowUnitBuildStep(builderID, builderTeam, unitID, unitDefID, part)
+    if (part < 0) then
+      local inbuild = select(3,Spring.GetUnitIsStunned(unitID))
+      if (not inbuild) then
+	    SendToUnsynced("unitshaders_reverse", unitID,unitDefID,Spring.GetUnitTeam(unitID))
+        if (not blockFirst[unitID]) then
+          blockFirst[unitID] = true
+          return false
+        end
+      end
+    else
+      blockFirst[unitID] = nil
+    end
+    return true
+  end
+  
   return
 end
 
@@ -335,28 +355,12 @@ gadget.UnitReverseBuild = gadget.UnitDestroyed
 gadget.UnitCloaked   = gadget.UnitDestroyed
 gadget.UnitDecloaked = gadget.UnitFinished
 
-function gadget:UnitGiven(...)
-  gadget:UnitDestroyed(...)
-  gadget:UnitFinished(...)
-end
-
---// block first try, so we have enough time to disable the lua UnitRendering
---// else the model would be invisible for 1 gameframe
-local blockFirst = {}
-function gadget:AllowUnitBuildStep(builderID, builderTeam, unitID, unitDefID, part)
-  if (part < 0) then
-    local inbuild = select(3,Spring.GetUnitIsStunned(unitID))
-    if (not inbuild) then
-      gadget:UnitReverseBuild(unitID,unitDefID,Spring.GetUnitTeam(unitID))
-      if (not blockFirst[unitID]) then
-        blockFirst[unitID] = true
-        return false
-      end
-    end
-  else
-    blockFirst[unitID] = nil
+function gadget:UnitGiven(unitID, ...)
+  if not select(3, Spring.GetUnitIsStunned(unitID)) then
+    -- Do not do this for nanoframe, causes bug with obj rendering.
+    gadget:UnitDestroyed(unitID, ...)
+    gadget:UnitFinished(unitID, ...)
   end
-  return true
 end
 
 --------------------------------------------------------------------------------
@@ -425,6 +429,7 @@ function gadget:Initialize()
     end
   end
 
+  gadgetHandler:AddSyncAction("unitshaders_reverse", UnitReverseBuild)
   gadgetHandler:AddChatAction("normalmapping", ToggleNormalmapping)
 end
 

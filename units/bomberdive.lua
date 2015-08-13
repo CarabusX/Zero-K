@@ -138,9 +138,9 @@ unitDef = {
 	  cylinderTargeting	      = 1,
 
       damage                  = {
-        default = 800,
-        planes  = 800,
-        subs    = 800,
+        default = 805.1,
+        planes  = 805.1,
+        subs    = 805.1,
       },
 	  
 	  customParams            = {
@@ -165,7 +165,6 @@ unitDef = {
       soundStart              = [[weapon/bomb_drop]],
       startsmoke              = [[1]],
       startVelocity           = 200,
-      targetMoveError         = 0,
       tolerance               = 8000,
       tracks                  = true,
       turnRate                = 65535,
@@ -219,7 +218,7 @@ unitDef = {
       craterMult              = 2,
 
       damage                  = {
-        default = 800,
+        default = 810,
       },
 
       explosionGenerator      = [[custom:TORPEDO_HIT]],

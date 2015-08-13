@@ -39,6 +39,9 @@ unitDef = {
     aimposoffset   = [[0 3 0]],
 	modelradius    = [[10]],
 	refuelturnradius = [[120]],
+
+	combat_slowdown = 0.5,
+	selection_scale = 1.4,
   },
 
   explodeAs              = [[GUNSHIPEX]],
@@ -104,9 +107,9 @@ unitDef = {
 	  },
 
       damage                  = {
-        default = 0.98,
-        planes  = 9.8,
-        subs    = 0.98,
+        default = 0.96,
+        planes  = 9.6,
+        subs    = 0.96,
       },
 
       explosionGenerator      = [[custom:flash_teal7]],

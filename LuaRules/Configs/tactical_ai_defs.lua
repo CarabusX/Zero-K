@@ -1,15 +1,20 @@
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
-local function merge(t1, t2)
-	for i, v in pairs(t2) do
-		t1[i] = v
+local function Union(t1, t2)
+	local ret = {}
+	for i, v in pairs(t1) do
+		ret[i] = v
 	end
+	for i, v in pairs(t2) do
+		ret[i] = v
+	end
+	return ret
 end
 
-local function NameTableToUnitDefID(nameTable)
+local function NameToDefID(nameTable)
 	local defTable = {}
-	for unitName,_  in pairs(nameTable) do
+	for _,unitName in pairs(nameTable) do
 		local ud = UnitDefNames[unitName]
 		if ud then
 			defTable[ud.id] = true
@@ -18,251 +23,272 @@ local function NameTableToUnitDefID(nameTable)
 	return defTable
 end
 
+local function SetMinus(set, exclusion)
+	local copy = {}
+	for i,v in pairs(set) do
+		copy[i] = v
+	end
+	for _, unitName in ipairs(exclusion) do
+		local ud = UnitDefNames[unitName]
+		if ud and ud.id then
+			copy[ud.id] = nil
+		end
+	end
+	return copy
+end
+
 -- swarm arrays
 -- these are not strictly required they just help with inputting the units
 
-local longRangeSwarmieeArray = { 
-	["cormart"] = true,
-	["firewalker"] = true,
-	["armsptk"] = true,
-	["corstorm"] = true,
-	["shiparty"] = true,
-	["armham"] = true,
-}
+local longRangeSwarmieeArray = NameToDefID({ 
+	"cormart",
+	"firewalker",
+	"armsptk",
+	"corstorm",
+	"shiparty",
+	"armham",
+})
 
-local medRangeSwarmieeArray = { 
-	["armrock"] = true,
-	["amphfloater"] = true,
-	["chickens"] = true,
-}
+local medRangeSwarmieeArray = NameToDefID({ 
+	"armrock",
+	"amphfloater",
+	"chickens",
+})
 
-local lowRangeSwarmieeArray = {
-	["corthud"] = true,
-	["spiderassault"] = true,
-	["corraid"] = true,
-	["armzeus"] = true,
-	["logkoda"] = true,
-	["hoverassault"] = true,
+local lowRangeSwarmieeArray = NameToDefID({
+	"corthud",
+	"spiderassault",
+	"corraid",
+	"armzeus",
+	"logkoda",
+	"hoverassault",
 	
-	["correap"] = true,
-	["corgol"] = true,
+	"correap",
+	"corgol",
 	
-	["armcrabe"] = true,
-	["armmanni"] = true,
+	"armcrabe",
+	"armmanni",
 	
-	["chickenr"] = true,
-	["chickenblobber"] = true,
-	["armsnipe"] = true, -- only worth swarming sniper at low range, too accurate otherwise.
-}
+	"chickenr",
+	"chickenblobber",
+	"armsnipe", -- only worth swarming sniper at low range, too accurate otherwise.
+})
 
-longRangeSwarmieeArray = NameTableToUnitDefID(longRangeSwarmieeArray)
-medRangeSwarmieeArray = NameTableToUnitDefID(medRangeSwarmieeArray)
-lowRangeSwarmieeArray = NameTableToUnitDefID(lowRangeSwarmieeArray)
-
-merge(medRangeSwarmieeArray,longRangeSwarmieeArray)
-merge(lowRangeSwarmieeArray,medRangeSwarmieeArray)
-
+medRangeSwarmieeArray = Union(medRangeSwarmieeArray,longRangeSwarmieeArray)
+lowRangeSwarmieeArray = Union(lowRangeSwarmieeArray,medRangeSwarmieeArray)
 
 -- skirm arrays
 -- these are not strictly required they just help with inputting the units
 
-local veryShortRangeSkirmieeArray = {
-	["corclog"] = true,
-	["corcan"] = true,
-	["spherepole"] = true,
-	["armtick"] = true,
-	["puppy"] = true,
-	["corroach"] = true,
-	["chicken"] = true,
-	["chickena"] = true,
-	["chicken_tiamat"] = true,
-	["chicken_dragon"] = true,
-	["hoverdepthcharge"] = true,
-}
+local veryShortRangeSkirmieeArray = NameToDefID({
+	"corclog",
+	"corcan",
+	"spherepole",
+	"armtick",
+	"puppy",
+	"corroach",
+	"chicken",
+	"chickena",
+	"chicken_tiamat",
+	"chicken_dragon",
+	"hoverdepthcharge",
+	
+	"corgator",
+	"armflea",
+	"armpw",
+	"corfav",
+})
 
-local shortRangeSkirmieeArray = {
-	["armflea"] = true,
-	["armpw"] = true,
-	["corfav"] = true,
-	["corgator"] = true,
-	["corpyro"] = true,
-	["logkoda"] = true,
-	["amphraider3"] = true,
-	["corsumo"] = true,
+local shortRangeSkirmieeArray = NameToDefID({
+	"corpyro",
+	"logkoda",
+	"amphraider3",
+	"corsumo",
 	
-	["corsktl"] = true,
-}
+	"corsktl",
+	"corak",
+})
 
-local riotRangeSkirmieeArray = {
-	["corak"] = true,
-	["panther"] = true,
-	["corsh"] = true,
-	["hoverscout"] = true,
-	["shipscout"] = true,
-	["shipraider"] = true,
-	["shiptorp"] = true,
-	["subraider"] = true,
-	["amphriot"] = true,
-	["armcomdgun"] = true,
-	["dante"] = true,
+local riotRangeSkirmieeArray = NameToDefID({
+	"panther",
+	"corsh",
+	"hoverscout",
+	"shipscout",
+	"shipraider",
+	"subraider",
+	"amphriot",
+	"armcomdgun",
+	"dante",
 	
-	["armjeth"] = true,
-	["corcrash"] = true,
-	["armaak"] = true,
-	["hoveraa"] = true,
-	["spideraa"] = true,
-	["amphaa"] = true,
-	["shipaa"] = true,
+	"armjeth",
+	"corcrash",
+	"armaak",
+	"hoveraa",
+	"spideraa",
+	"amphaa",
+	"shipaa",
 	
-	["armrectr"] = true,
-	["cornecro"] = true,
-	["corned"] = true,
-	["corch"] = true,
-	["coracv"] = true,
-	["arm_spider"] = true,
-	["corfast"] = true,
-	["amphcon"] = true,
-	["shipcon"] = true,
+	"armrectr",
+	"cornecro",
+	"corned",
+	"corch",
+	"coracv",
+	"arm_spider",
+	"corfast",
+	"amphcon",
+	"shipcon",
 	
-	["spherecloaker"] = true,
-	["core_spectre"] = true,
-}
+	"spherecloaker",
+	"core_spectre",
+})
 
-local lowMedRangeSkirmieeArray = {
-	["armcom"] = true,
-	["armadvcom"] = true,
+local lowMedRangeSkirmieeArray = NameToDefID({
+	"armcom",
+	"armadvcom",
 
-	["armwar"] = true,
-	["hoverassault"] = true,
-	["arm_venom"] = true,
+	"armwar",
+	"hoverassault",
+	"arm_venom",
 	
-	["cormak"] = true,
-	["corthud"] = true,
-	["corraid"] = true,
-}
+	"cormak",
+	"corthud",
+	"corraid",
+})
 
-local medRangeSkirmieeArray = {
-	["corcom"] = true,
-	["coradvcom"] = true,
-	["commsupport"] = true,
-	["commadvsupport"] = true,
+local medRangeSkirmieeArray = NameToDefID({
+	"corcom",
+	"coradvcom",
+	"commsupport",
+	"commadvsupport",
 	
-	["spiderriot"] = true,
-	["armzeus"] = true,
-	["amphraider2"] = true,
+	"spiderriot",
+	"armzeus",
+	"amphraider2",
 	
-	["spiderassault"] = true,
-	["corlevlr"] = true,
+	"spiderassault",
+	"corlevlr",
 	
-	["hoverriot"] = true,
-    ["shieldfelon"] = true,
+	"hoverriot",
+    "shieldfelon",
 
-	["correap"] = true,
-	["corgol"] = true,
-	["tawf114"] = true, -- banisher
-}
+	"correap",
+	"corgol",
+	"tawf114", -- banisher
+})
 
-for name,data in pairs(UnitDefNames) do -- add all comms to mid range skirm
+for name, data in pairs(UnitDefNames) do -- add all comms to mid range skirm
 	if data.customParams.commtype then
-		medRangeSkirmieeArray[name] = true
+		medRangeSkirmieeArray[data.id] = true
 	end
 end
 
-local longRangeSkirmieeArray = {
-	["armrock"] = true,
-	["amphfloater"] = true,
-	["nsclash"] = true, -- hover janus
-	["capturecar"] = true,
-	["chickenc"] = true,
-	["armbanth"] = true,
-	["gorg"] = true,
-	["corllt"] = true,
-	["armdeva"] = true,
-	["armartic"] = true,
-}
+local longRangeSkirmieeArray = NameToDefID({
+	"armrock",
+	"slowmort",
+	"amphfloater",
+	"nsclash", -- hover janus
+	"capturecar",
+	"chickenc",
+	"armbanth",
+	"gorg",
+	"corllt",
+	"armdeva",
+	"armartic",
+})
 
-local artyRangeSkirmieeArray = {
-	["shipskirm"] = true,
-	["armsptk"] = true,
-	["corstorm"] = true,
-	["amphassault"] = true,
-	["chicken_sporeshooter"] = true,
-	["corrl"] = true,
-	["corhlt"] = true,
-	["armpb"] = true,
-	["cordoom"] = true,
-	["armorco"] = true,
-}
+local artyRangeSkirmieeArray = NameToDefID({
+	"shipskirm",
+	"armsptk",
+	"corstorm",
+	"cormist",
+	"amphassault",
+	"chicken_sporeshooter",
+	"corrl",
+	"corhlt",
+	"armpb",
+	"cordoom",
+	"armorco",
+	"amphartillery",
+})
 
-veryShortRangeSkirmieeArray = NameTableToUnitDefID(veryShortRangeSkirmieeArray)
-shortRangeSkirmieeArray = NameTableToUnitDefID(shortRangeSkirmieeArray)
-riotRangeSkirmieeArray = NameTableToUnitDefID(riotRangeSkirmieeArray)
-lowMedRangeSkirmieeArray = NameTableToUnitDefID(lowMedRangeSkirmieeArray)
-medRangeSkirmieeArray = NameTableToUnitDefID(medRangeSkirmieeArray)
-longRangeSkirmieeArray = NameTableToUnitDefID(longRangeSkirmieeArray)
-artyRangeSkirmieeArray = NameTableToUnitDefID(artyRangeSkirmieeArray)
+local slasherSkirmieeArray = NameToDefID({
+	"corsumo",
+	"dante",
+	"armwar",
+	"hoverassault",
+	"cormak",
+	"corthud",
+	"spiderriot",
+	"armzeus",
+	"spiderassault",
+	"corraid",
+	"corlevlr",
+	"hoverriot",
+    "shieldfelon",
+	"correap",
+	"armrock",
+})
 
-merge(shortRangeSkirmieeArray,veryShortRangeSkirmieeArray)
-merge(riotRangeSkirmieeArray,shortRangeSkirmieeArray)
-merge(lowMedRangeSkirmieeArray, riotRangeSkirmieeArray)
-merge(medRangeSkirmieeArray, lowMedRangeSkirmieeArray)
-merge(longRangeSkirmieeArray,medRangeSkirmieeArray)
-merge(artyRangeSkirmieeArray,longRangeSkirmieeArray)
+shortRangeSkirmieeArray = Union(shortRangeSkirmieeArray,veryShortRangeSkirmieeArray)
+riotRangeSkirmieeArray = Union(riotRangeSkirmieeArray,shortRangeSkirmieeArray)
+lowMedRangeSkirmieeArray = Union(lowMedRangeSkirmieeArray, riotRangeSkirmieeArray)
+medRangeSkirmieeArray = Union(medRangeSkirmieeArray, lowMedRangeSkirmieeArray)
+longRangeSkirmieeArray = Union(longRangeSkirmieeArray,medRangeSkirmieeArray)
+artyRangeSkirmieeArray = Union(artyRangeSkirmieeArray,longRangeSkirmieeArray)
 
 -- Stuff that mobile AA skirms
 
-local skirmableAir = {
-	["blastwing"] = true,
-	["bladew"] = true,
-	["armkam"] = true,
-	["gunshipsupport"] = true,
-	["armbrawl"] = true,
-	["blackdawn"] = true,
-	["corbtrans"] = true,
-	["corcrw"] = true,
-}
+local skirmableAir = NameToDefID({
+	"blastwing",
+	"bladew",
+	"armkam",
+	"gunshipsupport",
+	"armbrawl",
+	"blackdawn",
+	"corbtrans",
+	"corcrw",
+})
 
-skirmableAir = NameTableToUnitDefID(skirmableAir)
+-- Brawler, for AA to swarm.
+local brawler = NameToDefID({
+	"armbrawl",
+})
 
 -- Things that are fled by some things
+local fleeables = NameToDefID({
+	"corllt",
+	"armdeva",
+	"armartic",
+	"corgrav",
+	
+	"armcom",
+	"armadvcom",
+	"corcom",
+	"coradvcom",
+	
+	"armwar",
+	"armzeus",
+	
+	"arm_venom",
+	"spiderriot",
+	
+	"cormak",
+	
+	"corlevlr",
+	"capturecar",
 
-local fleeables = {
-	["corllt"] = true,
-	["armdeva"] = true,
-	["armartic"] = true,
-	["corgrav"] = true,
-	
-	["armcom"] = true,
-	["armadvcom"] = true,
-	["corcom"] = true,
-	["coradvcom"] = true,
-	
-	["armwar"] = true,
-	["armzeus"] = true,
-	
-	["arm_venom"] = true,
-	["spiderriot"] = true,
-	
-	["cormak"] = true,
-	
-	["corlevlr"] = true,
-	["capturecar"] = true,
-
-	["hoverriot"] = true, -- mumbo
-    ["shieldfelon"] = true,
-	["corsumo"] = true,
-}
+	"hoverriot", -- mumbo
+    "shieldfelon",
+	"corsumo",
+})
 
 local armedLand = {}
 for name,data in pairs(UnitDefNames) do
 	if data.canAttack and (not data.canFly) 
 	and data.weapons[1] and data.weapons[1].onlyTargets.land then
-		armedLand[name] = true 
+		armedLand[data.id] = true 
 	end
 end
-
-fleeables = NameTableToUnitDefID(fleeables)
-armedLand = NameTableToUnitDefID(armedLand)
 
 -- waterline(defaults to 0): Water level at which the unit switches between land and sea behaviour
 -- sea: table of behaviour for sea. Note that these tables are optional.
@@ -274,10 +300,12 @@ armedLand = NameTableToUnitDefID(armedLand)
 
 --*** skirms(defaults to empty): the table of units that this unit will attempt to keep at max range
 -- skirmEverything (defaults to false): Skirms everything (does not skirm radar with this enabled only)
--- skirmLeeway: (Weapon range - skirmLeeway) = distance that the unit will try to keep from units while skirming
+-- skirmLeeway (defaults to 0): (Weapon range - skirmLeeway) = distance that the unit will try to keep from units while skirming
 -- stoppingDistance (defaults to 0): (skirmLeeway - stoppingDistance) = max distance from target unit that move commands can be given while skirming
 -- skirmRadar (defaults to false): Skirms radar dots
+-- skirmOnlyNearEnemyRange (defaults to false): If true, skirms only when the enemy unit is withing enemyRange + skirmOnlyNearEnemyRange
 -- skirmOrderDis (defaults in config): max distance the move order is from the unit when skirming
+-- skirmKeepOrder (defaults to false): If true the unit does not clear its move order when too far away from the unit it is skirming.
 -- velocityPrediction (defaults in config): number of frames of enemy velocity prediction for skirming and fleeing
 
 --*** swarms(defaults to empty): the table of units that this unit will jink towards and strafe
@@ -362,9 +390,9 @@ local behaviourConfig = {
 		circleStrafe = true, 
 		maxSwarmLeeway = 35, 
 		swarmLeeway = 50, 
+		skirmLeeway = 10,
 		jinkTangentLength = 140, 
 		stoppingDistance = 10,
-		velocityPrediction = 20,
 	},
 	
 	["armflea"] = {
@@ -610,13 +638,37 @@ local behaviourConfig = {
 		},
 		sea = {
 			weaponNum = 2,
-			skirms = armedLand, 
+			skirms = riotRangeSkirmieeArray, 
 			swarms = {}, 
 			flees = {},
 			circleStrafe = true,
 			maxSwarmLeeway = 40,
 			skirmLeeway = 30, 
 			minCircleStrafeDistance = 10,
+		},
+	},
+	
+	["amphartillery"] = {
+		waterline = -5,
+		land = {
+			weaponNum = 1,
+			skirms = artyRangeSkirmieeArray, 
+			swarms = {}, 
+			flees = {},
+		skirmRadar = true,
+		maxSwarmLeeway = 10, 
+		minSwarmLeeway = 130, 
+		skirmLeeway = 40, 
+		},
+		sea = {
+			weaponNum = 2,
+			skirms = medRangeSkirmieeArray, 
+			swarms = {}, 
+			flees = {},
+		skirmRadar = true,
+		maxSwarmLeeway = 10, 
+		minSwarmLeeway = 130, 
+		skirmLeeway = 40, 
 		},
 	},
 		
@@ -701,8 +753,22 @@ local behaviourConfig = {
 		flees = {},
 		maxSwarmLeeway = 30, 
 		minSwarmLeeway = 130, 
+		skirmLeeway = 0,
+		stoppingDistance = -40,
+		skirmOrderDis = 250,
+		velocityPrediction = 40,
+	},
+	["gunshipsupport"] = {
+		skirms = medRangeSkirmieeArray, 
+		swarms = medRangeSwarmieeArray, 
+		flees = {},
+	},
+	["corcrw"] = {
+		skirms = medRangeSkirmieeArray, 
+		swarms = medRangeSwarmieeArray, 
+		flees = {},
 		skirmLeeway = 30, 
-	},	
+	},
 	
 	-- long range skirms
 	["jumpblackhole"] = {
@@ -748,6 +814,19 @@ local behaviourConfig = {
 		velocityPrediction = 60,
 	},
 	
+	-- weird stuff
+	["cormist"] = {
+		defaultAIState = 0,
+		skirms = slasherSkirmieeArray, 
+		swarms = {}, 
+		flees = {},
+		skirmLeeway = -400, 
+		skirmOrderDis = 700,
+		skirmKeepOrder = true,
+		velocityPrediction = 10,
+		skirmOnlyNearEnemyRange = 80
+	},
+	
 	-- arty range skirms
 	["armbanth"] = {
 		skirms = artyRangeSkirmieeArray,
@@ -766,7 +845,7 @@ local behaviourConfig = {
 	},
 	
 	["corgarp"] = {
-		skirms = artyRangeSkirmieeArray, 
+		skirms = SetMinus(artyRangeSkirmieeArray, {"corhlt"}), 
 		swarms = {}, 
 		flees = {},
 		maxSwarmLeeway = 10, 
@@ -812,13 +891,13 @@ local behaviourConfig = {
 		skirmLeeway = 40, 
 	},	
 	["shieldarty"] = {
-		skirms = artyRangeSkirmieeArray, 
-		swarms = {}, 
+		skirms = Union(artyRangeSkirmieeArray, skirmableAir),
+		swarms = {},
 		flees = {},
 		skirmRadar = true,
 		maxSwarmLeeway = 10, 
 		minSwarmLeeway = 130, 
-		skirmLeeway = 40, 
+		skirmLeeway = 150, 
 	},	
 	["armmanni"] = {
 		skirms = artyRangeSkirmieeArray, 
@@ -864,7 +943,7 @@ local behaviourConfig = {
 	-- mobile AA
 	["armjeth"] = {
 		skirms = skirmableAir, 
-		swarms = {}, 
+		swarms = brawler, 
 		flees = armedLand,
 		fleeLeeway = 100,
 		fleeDistance = 100,
@@ -873,8 +952,20 @@ local behaviourConfig = {
 	},
 	["corcrash"] = {
 		skirms = skirmableAir, 
-		swarms = {}, 
+		swarms = brawler, 
 		flees = armedLand,
+		minSwarmLeeway = 500,
+		fleeLeeway = 100,
+		fleeDistance = 100,
+		minFleeRange = 500,
+        skirmLeeway = 50, 
+	},
+	["vehaa"] = {
+		skirms = skirmableAir, 
+		swarms = brawler, 
+		flees = armedLand,
+		minSwarmLeeway = 100,
+		strafeOrderLength = 180,
 		fleeLeeway = 100,
 		fleeDistance = 100,
 		minFleeRange = 500,
@@ -882,8 +973,9 @@ local behaviourConfig = {
 	},
 	["armaak"] = {
 		skirms = skirmableAir, 
-		swarms = {}, 
+		swarms = brawler, 
 		flees = armedLand,
+		minSwarmLeeway = 300,
 		fleeLeeway = 100,
 		fleeDistance = 100,
 		minFleeRange = 500,
@@ -891,8 +983,9 @@ local behaviourConfig = {
 	},
 	["hoveraa"] = {
 		skirms = skirmableAir, 
-		swarms = {}, 
+		swarms = brawler, 
 		flees = armedLand,
+		minSwarmLeeway = 100,
 		fleeLeeway = 100,
 		fleeDistance = 100,
 		minFleeRange = 500,
@@ -901,8 +994,9 @@ local behaviourConfig = {
 	},
 	["spideraa"] = {
 		skirms = skirmableAir, 
-		swarms = {}, 
+		swarms = brawler, 
 		flees = armedLand,
+		minSwarmLeeway = 300,
 		fleeLeeway = 100,
 		fleeDistance = 100,
 		minFleeRange = 500,
@@ -910,8 +1004,9 @@ local behaviourConfig = {
 	},
 	["corsent"] = {
 		skirms = skirmableAir, 
-		swarms = {}, 
+		swarms = brawler, 
 		flees = armedLand,
+		minSwarmLeeway = 100,
 		fleeLeeway = 100,
 		fleeDistance = 100,
 		minFleeRange = 500,
@@ -919,8 +1014,8 @@ local behaviourConfig = {
 		skirmOrderDis = 200, 
 	},
 	["amphaa"] = {
-		skirms = skirmableAir, 
-		swarms = {}, 
+		skirms = skirmableAir,
+		swarms = brawler, 
 		flees = armedLand,
 		fleeLeeway = 100,
 		fleeDistance = 100,
@@ -930,8 +1025,9 @@ local behaviourConfig = {
 	},
 	["shipaa"] = {
 		skirms = skirmableAir, 
-		swarms = {}, 
+		swarms = brawler, 
 		flees = armedLand,
+		minSwarmLeeway = 100,
 		fleeLeeway = 100,
 		fleeDistance = 100,
 		minFleeRange = 500,
@@ -940,8 +1036,9 @@ local behaviourConfig = {
 	},
 	["gunshipaa"] = {
 		skirms = skirmableAir, 
-		swarms = {}, 
+		swarms = brawler, 
 		flees = armedLand,
+		minSwarmLeeway = 100,
 		fleeLeeway = 100,
 		fleeDistance = 100,
 		minFleeRange = 500,

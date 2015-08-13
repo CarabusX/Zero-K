@@ -108,6 +108,28 @@ end
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 --
+-- Remove special stuff for empirical DPS purposes
+
+for _, weaponDef in pairs(WeaponDefs) do
+	if weaponDef.impactonly then
+		weaponDef.edgeeffectiveness = 1
+	end
+end
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+--
+-- Set lenient fire tolerance
+
+for _, weaponDef in pairs(WeaponDefs) do
+	if not weaponDef.firetolerance then
+		weaponDef.firetolerance = 32768 -- Full 180 degrees on either side.
+	end
+end
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+--
 -- Preserve crater sizes for new engine
 -- https://github.com/spring/spring/commit/77c8378b04907417a62c25218d69ff323ba74c8d
 
@@ -116,6 +138,13 @@ if not reverseCompat then
 		if (not weaponDef.craterareaofeffect) then
 			weaponDef.craterareaofeffect = tonumber(weaponDef.areaofeffect or 0) * 1.5
 		end
+	end
+end
+
+-- https://github.com/spring/spring/commit/dd7d1f79c3a9b579f874c210eb4c2a8ae7b72a16
+for _, weaponDef in pairs(WeaponDefs) do
+	if ((weaponDef.weapontype == "LightningCannon") and (not weaponDef.beamttl)) then
+		weaponDef.beamttl = 10
 	end
 end
 
@@ -180,11 +209,38 @@ end
 	if weaponDef.mygravity then
 		weaponDef.customparams.mygravity = weaponDef.mygravity -- For attack AOE widget
     end
+	if weaponDef.flighttime then
+		weaponDef.customparams.flighttime = weaponDef.flighttime
+    end
+	if weaponDef.weapontimer then
+		weaponDef.customparams.weapontimer = weaponDef.weapontimer
+    end
 	if weaponDef.weaponvelocity then
 		weaponDef.customparams.weaponvelocity = weaponDef.weaponvelocity -- For attack AOE widget
 	end
+	if weaponDef.dyndamageexp and (weaponDef.dyndamageexp > 0) then
+		weaponDef.customparams.dyndamageexp = weaponDef.dyndamageexp
+	end
+	if weaponDef.flighttime and (weaponDef.flighttime > 0) then
+		weaponDef.customparams.flighttime = weaponDef.flighttime
+	end
  end
 
+-- Set defaults for napalm (area damage)
+local area_damage_defaults = VFS.Include("gamedata/unitdef_defaults/area_damage_defs.lua")
+for name, wd in pairs (WeaponDefs) do
+	local cp = wd.customparams
+	if cp.area_damage then
+		if not cp.area_damage_dps then cp.area_damage_dps = area_damage_defaults.dps end
+		if not cp.area_damage_radius then cp.area_damage_radius = area_damage_defaults.radius end
+		if not cp.area_damage_duration then cp.area_damage_duration = area_damage_defaults.duration end
+
+		if not cp.area_damage_is_impulse then cp.area_damage_is_impulse = area_damage_defaults.is_impulse end
+		if not cp.area_damage_range_falloff then cp.area_damage_range_falloff = area_damage_defaults.range_falloff end
+		if not cp.area_damage_time_falloff then cp.area_damage_time_falloff = area_damage_defaults.time_falloff end
+	end
+end
+ 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 --
@@ -193,6 +249,11 @@ end
  for _, weaponDef in pairs(WeaponDefs) do
     weaponDef.noselfdamage = (weaponDef.noselfdamage ~= false)
  end
+ 
+-- remove experience bonuses
+for _, weaponDef in pairs(WeaponDefs) do
+	weaponDef.ownerExpAccWeight = 0
+end
  
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
@@ -210,6 +271,17 @@ end
 		weaponDef.tilelength = (weaponDef.tilelength and weaponDef.tilelength*4) or 800
 	end
  end
+ 
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+--
+-- Reduce rounding error in damage
+
+for _, weaponDef in pairs(WeaponDefs) do
+	if weaponDef.impactonly then
+		weaponDef.edgeeffectiveness = 1
+	end
+end
  
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
@@ -257,7 +329,7 @@ do
     local canAttack = false
     if (RawCanAttack(ud)) then
       canAttack = true
-    elseif (ud.tedclass == 'PLANT') then
+    elseif (ud.unitname:find("factory") or (ud.unitname == "missilesilo")) then
       if (FacCanAttack(ud)) then
         canAttack = true
       end

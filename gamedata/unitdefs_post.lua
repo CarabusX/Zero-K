@@ -301,6 +301,49 @@ end
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
+-- Different aircraft turn radius in new engine
+
+if not reverseCompat then
+	for name, ud in pairs(UnitDefs) do
+		if name == "fighter" then
+			ud.turnradius = 150
+			ud.maxrudder = 0.007
+		elseif name == "corvamp" then
+			ud.turnradius = 80
+			ud.maxrudder = 0.006
+		elseif name == "bomberdive" then
+			ud.turnradius = 40
+		elseif name == "corhurc2" then
+			ud.turnradius = 20
+		elseif name == "armstiletto_laser" then
+			ud.turnradius = 20
+		elseif name == "armcybr" then
+			ud.turnradius = 20
+		elseif "corawac" then
+			ud.turnradius = 60
+		end
+	end
+end
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-- Increase pathable areas of yardmaps for new engine as a test.
+
+if not reverseCompat then
+	for name, ud in pairs(UnitDefs) do
+		if name == "factorytank" then
+			ud.yardmap = "oooooooooo oooooooooo oooooooooo ooccccccoo ooccccccoo yoccccccoy yoccccccoy yyccccccyy"
+		elseif name == "factoryveh" then
+			ud.yardmap = "yyoooyy yoooooy ooooooo occccco occccco occccco occccco"
+		elseif name == "factorycloak" then
+			ud.yardmap = "ooooooo ooooooo ooooooo occccco occccco occccco occccco"
+		end
+	end
+end
+
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 -- Aircraft Brake Rate is not multiplied by 0.1 in 94.1.1+
 -- https://github.com/spring/spring/commit/8009eb548cc62162d9fd15f2914437f4ca63a198
 
@@ -564,6 +607,17 @@ end
 --  end
 --end
 
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-- Set drones to take forever to build such that normal constructors do not complete them.
+-- 
+for name, ud in pairs(UnitDefs) do
+	if ud.customparams.is_drone then
+		ud.customparams.real_buildtime = ud.buildtime
+		ud.buildtime = ud.buildtime*1000000000
+	end
+end
+
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
@@ -573,6 +627,31 @@ for name, ud in pairs(UnitDefs) do
 	ud.mass = (((ud.buildtime/2) + (ud.maxdamage/8))^0.6)*6.5
 	if ud.customparams.massmult then
 		ud.mass = ud.mass*ud.customparams.massmult
+	end
+end
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-- Set incomes
+--
+if not reverseCompat then 
+	for name, ud in pairs(UnitDefs) do
+		if ud.metalmake and ud.metalmake > 0 then
+			ud.customparams.income_metal = ud.metalmake
+			ud.activatewhenbuilt = true
+			ud.metalmake = 0
+		end
+		if ud.energymake and ud.energymake > 0 then
+			ud.customparams.income_energy = ud.energymake
+			ud.activatewhenbuilt = true
+			ud.energymake = 0
+		end
+	end
+else
+	for name, ud in pairs(UnitDefs) do
+		if name == "armsolar" then
+			ud.energymake = 0
+			ud.energyuse = -2
+		end
 	end
 end
 
@@ -642,16 +721,6 @@ if (modOptions and tobool(modOptions.xmas)) then
     end
 
   end --for
-end
-
-
---------------------------------------------------------------------------------
---------------------------------------------------------------------------------
--- Special Power plants
--- 
-if (modOptions and not tobool(modOptions.specialpower)) then
-	UnitDefs.cafus.explodeas 		= "NUCLEAR_MISSILE"
-	UnitDefs.cafus.selfdestructas 	= "NUCLEAR_MISSILE"
 end
 
 --------------------------------------------------------------------------------
@@ -727,15 +796,61 @@ for name, ud in pairs(UnitDefs) do
 end
 
 -- Set default out of combat autorepair
+local autoheal_defaults = VFS.Include("gamedata/unitdef_defaults/autoheal_defs.lua")
 for name, ud in pairs(UnitDefs) do
+	if not ud.autoheal then
+		ud.autoheal = autoheal_defaults.autoheal
+	end
 	if not ud.idletime then
-		ud.idletime = 1800 -- frames, = 60s
+		ud.idletime = autoheal_defaults.idletime
 	end
 	if not ud.idleautoheal then
-		ud.idleautoheal = 5 -- HP/s
+		ud.idleautoheal = autoheal_defaults.idleautoheal
 	end
 end
 
+-- Fix inconsistent idle regeneration for air units
+for name, ud in pairs(UnitDefs) do
+	if ud.canfly then
+		ud.customparams.idle_regen = ud.idleautoheal
+		ud.idleautoheal = 0
+	end
+end
+
+-- Set defaults for area cloak
+local area_cloak_defaults = VFS.Include("gamedata/unitdef_defaults/area_cloak_defs.lua")
+for name, ud in pairs(UnitDefs) do
+	local cp = ud.customparams
+	if cp.area_cloak and (cp.area_cloak ~= "0") then
+		if not cp.area_cloak_upkeep then cp.area_cloak_upkeep = tostring(area_cloak_defaults.upkeep) end
+		if not cp.area_cloak_radius then cp.area_cloak_radius = tostring(area_cloak_defaults.radius) end
+
+		if not cp.area_cloak_grow_rate then cp.area_cloak_grow_rate = tostring(area_cloak_defaults.grow_rate) end
+		if not cp.area_cloak_shrink_rate then cp.area_cloak_shrink_rate = tostring(area_cloak_defaults.shrink_rate) end
+		if not cp.area_cloak_decloak_distance then cp.area_cloak_decloak_distance = tostring(area_cloak_defaults.decloak_distance) end
+
+		if not cp.area_cloak_init then cp.area_cloak_init = tostring(area_cloak_defaults.init) end
+		if not cp.area_cloak_draw then cp.area_cloak_draw = tostring(area_cloak_defaults.draw) end
+		if not cp.area_cloak_self then cp.area_cloak_self = tostring(area_cloak_defaults.self) end
+	end
+end
+
+-- Set defaults for jump
+local jump_defaults = VFS.Include("gamedata/unitdef_defaults/jump_defs.lua")
+for name, ud in pairs (UnitDefs) do
+	local cp = ud.customparams
+	if cp.canjump == "1" then
+		if not cp.jump_range then cp.jump_range = tostring(jump_defaults.range) end
+		if not cp.jump_height then cp.jump_height = tostring(jump_defaults.height) end
+		if not cp.jump_speed then cp.jump_speed = tostring(jump_defaults.speed) end
+		if not cp.jump_reload then cp.jump_reload = tostring(jump_defaults.reload) end
+		if not cp.jump_delay then cp.jump_delay = tostring(jump_defaults.delay) end
+
+		if not cp.jump_from_midair then cp.jump_from_midair = tostring(jump_defaults.from_midair) end
+		if not cp.jump_rotate_midair then cp.jump_rotate_midair = tostring(jump_defaults.rotate_midair) end
+		if not cp.jump_spread_exception then cp.jump_spread_exception = tostring(jump_defaults.spread_exception) end
+	end
+end
 
 -- Disable porc/air/specific units modoptions (see lockunits_modoption.lua)
 

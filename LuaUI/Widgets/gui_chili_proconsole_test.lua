@@ -78,7 +78,8 @@ local MESSAGE_RULES = {
 	label = { format = '#p$playername#e added label: $argument' },
 	point = { format = '#p$playername#e added point.' },
 	autohost = { format = '#o> $argument', noplayername = true },
-	other = { format = '#o$text' } -- no pattern... will match anything else
+	other = { format = '#o$text' }, -- no pattern... will match anything else
+	game_message = { format = '#o$text' } -- no pattern...
 }
 
 --------------------------------------------------------------------------------
@@ -159,6 +160,9 @@ options_order = {
 	'defaultBacklogEnabled',
 	'mousewheelBacklog',
 	'enableSwap',
+	'changeFont',
+	'enableChatBackground',
+	'toggleBacklog',
 	'text_height_chat', 
 	'text_height_console',
 	'backchatOpacity',
@@ -480,6 +484,11 @@ options = {
 		type = 'bool',
 		value = false,
 	},
+	toggleBacklog = {
+		name = "Toggle backlog",
+		desc = "The toggle backlog button is here to let you hotkey this action.",
+		type = 'button',
+	},
 	mousewheelBacklog = {
 		name = "Mousewheel Backlog",
 		desc = "Scroll the backlog chat with the mousewheel.",
@@ -498,7 +507,9 @@ options = {
 		OnChange = function(self)
 			if self.value then
 				window_chat:AddChild(backlogButton)
-				window_chat:RemoveChild(inputspace)
+				if options.enableChatBackground.value then
+					window_chat:RemoveChild(inputspace)
+				end
 				inputspace = WG.Chili.ScrollPanel:New{
 					x = 0,
 					bottom = 0,
@@ -508,10 +519,14 @@ options = {
 					borderColor = {0,0,0,1},
 					--backgroundColor = {1,1,1,1},
 				}
-				window_chat:AddChild(inputspace)
+				if options.enableChatBackground.value then
+					window_chat:AddChild(inputspace)
+				end
 			else
 				window_chat:RemoveChild(backlogButton)
-				window_chat:RemoveChild(inputspace)
+				if options.enableChatBackground.value then
+					window_chat:RemoveChild(inputspace)
+				end
 				inputspace = WG.Chili.ScrollPanel:New{
 					x = 0,
 					bottom = 0,
@@ -521,9 +536,33 @@ options = {
 					borderColor = {0,0,0,1},
 					--backgroundColor = {1,1,1,1},
 				}
-				window_chat:AddChild(inputspace)
+				if options.enableChatBackground.value then
+					window_chat:AddChild(inputspace)
+				end
 			end
 			window_chat:Invalidate()
+		end,
+	},
+	changeFont = {
+		name = "Change message entering font.",
+		desc = "With this enabled the text-entering font will be changed to match the chat. May cause Spring to competely lock up intermittently on load. Requires reload to update.",
+		type = 'bool',
+		value = false,
+		advanced = true,
+	},
+	enableChatBackground = {
+		name = "Enable chat background.",
+		desc = "Enables a background for the text-entering box.",
+		type = 'bool',
+		value = false,
+		advanced = true,
+		OnChange = function(self)
+			if self.value then
+				window_chat:AddChild(inputspace)
+			else
+				window_chat:RemoveChild(inputspace)
+			end
+			scrollpanel_console:Invalidate()
 		end,
 	},
 	backchatOpacity = {
@@ -550,8 +589,10 @@ options = {
 --functions
 
 local function SetInputFontSize(size)
-	Spring.SetConfigInt("FontSize", size, true) --3rd param true is "this game only"
-	Spring.SendCommands('font ' .. WG.Chili.EditBox.font.font)
+	if options.changeFont.value then
+		Spring.SetConfigInt("FontSize", size, true) --3rd param true is "this game only"
+		Spring.SendCommands('font ' .. WG.Chili.EditBox.font.font)
+	end
 end	
 
 --------------------------------------------------------------------------------
@@ -626,6 +667,29 @@ end
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
+local function escape_lua_pattern(s)
+
+	local matches =
+	{
+		["^"] = "%^";
+		["$"] = "%$";
+		["("] = "%(";
+		[")"] = "%)";
+		["%"] = "%%";
+		["."] = "%.";
+		["["] = "%[";
+		["]"] = "%]";
+		["*"] = "%*";
+		["+"] = "%+";
+		["-"] = "%-";
+		["?"] = "%?";
+		["\0"] = "%z";
+	}
+
+  
+	return (s:gsub(".", matches))
+end
+
 local function PlaySound(id, condition)
 	if condition ~= nil and not condition then
 		return
@@ -676,6 +740,32 @@ local function formatMessage(msg)
 			end
 		end)
 	msg.formatted = formatted
+	--]]
+	msg.textFormatted = msg.text
+	if msg.playername then
+		local out = msg.text
+		local playerName = escape_lua_pattern(msg.playername)
+		out = out:gsub( '^<' .. playerName ..'> ', '' )
+		out = out:gsub( '^%[' .. playerName ..'%] ', '' )
+		msg.textFormatted = out
+	end
+	msg.source2 = msg.playername or ''
+end
+
+local function MessageIsChatInfo(msg)
+	return string.find(msg.argument,'enabled!') or
+	string.find(msg.argument,'disabled!') or 
+	string.find(msg.argument,'Speed set to') or
+	string.find(msg.argument,'following') or
+	string.find(msg.argument,'Connection attempted') or
+	string.find(msg.argument,'exited') or 
+	string.find(msg.argument,'is no more') or 
+	string.find(msg.argument,'paused the game') or
+	string.find(msg.argument,'Sync error for') or
+	string.find(msg.argument,'Cheating is') or
+	string.find(msg.argument,'resigned') or
+	(string.find(msg.argument,'left the game') and string.find(msg.argument,'Player')) or
+	string.find(msg.argument,'Team') --endgame comedic message. Engine message, loaded from gamedata/messages.lua (hopefully 'Team' with capital 'T' is not used anywhere else)
 end
 
 local function hideMessage(msg)
@@ -683,25 +773,11 @@ local function hideMessage(msg)
 		or (msg.msgtype == "player_to_allies" and options.hideAlly.value)
 		or (msg.msgtype == "point" and options.hidePoint.value)
 		or (msg.msgtype == "label" and options.hideLabel.value)
-		or (msg.msgtype == 'other' and options.hideLog.value and not (string.find(msg.argument,'enabled!') or
-		string.find(msg.argument,'disabled!') or 
-		string.find(msg.argument,'Wind Range') or
-		string.find(msg.argument,'utogroup') or
-		string.find(msg.argument,'Speed set to') or
-		string.find(msg.argument,'following') or
-		string.find(msg.argument,'Connection attempted') or
-		string.find(msg.argument,'wins!') or 
-		string.find(msg.argument,'resigned') or 
-		string.find(msg.argument,'exited') or 
-		string.find(msg.argument,'is no more') or 
-		string.find(msg.argument,'paused the game') or
-		string.find(msg.argument,'Sync error for') or
-		(string.find(msg.argument,'left the game') and string.find(msg.argument,'Player')) or
-		string.find(msg.argument,'Team') or string.find(msg.argument,'AFK'))) --endgame comedic message (hopefully 'Team' with capital 'T' is not used anywhere else) & AFK/lagmonitor message
+		or (msg.msgtype == 'other' and options.hideLog.value and not MessageIsChatInfo(msg))
 end
 
 local function AddMessage(msg, target, remake)
-	if hideMessage(msg)	or (not WG.Chili) then
+	if hideMessage(msg) or (not WG.Chili) then
 		return
 	end
 	
@@ -1079,6 +1155,9 @@ local function SwapBacklog()
 	end
 	showingBackchat = not showingBackchat
 end
+
+options.toggleBacklog.OnChange = SwapBacklog
+
 -----------------------------------------------------------------------
 -- callins
 -----------------------------------------------------------------------
@@ -1086,7 +1165,6 @@ end
 
 function widget:KeyPress(key, modifier, isRepeat)
 	if (key == KEYSYMS.RETURN) then
-
 		if noAlly then
 			firstEnter = false --skip the default-ally-chat initialization if there's no ally. eg: 1vs1
 		end
@@ -1131,13 +1209,16 @@ end
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
+local function isChat(msg)
+	return msg.msgtype ~= 'other' or MessageIsChatInfo(msg)
+end
 
 -- new callin! will remain in widget
 function widget:AddConsoleMessage(msg)
 	if options.error_opengl_source.value and msg.msgtype == 'other' and (msg.argument):find('Error: OpenGL: source') then return end
 	if msg.msgtype == 'other' and (msg.argument):find('added point') then return end
 	
-	local isChat = msg.msgtype ~= 'other' or msg.text:find('paused the game')
+	local isChat = isChat(msg) 
 	local isPoint = msg.msgtype == "point" or msg.msgtype == "label"
 	local messages = isChat and chatMessages or consoleMessages
 	
@@ -1203,9 +1284,11 @@ end
 local firstUpdate = true
 local timer = 0
 
+local initialSwapTime = 0.2
+local firstSwap = true
+
 -- FIXME wtf is this obsessive function?
 function widget:Update(s)
-
 	timer = timer + s
 	if timer > 2 then
 		timer = 0
@@ -1232,6 +1315,19 @@ function widget:Update(s)
 			SwapBacklog()
 		end
 		firstUpdate = false
+		SetInputFontSize(15)
+	end
+	
+	-- Workaround bugged display on first open of the backlog
+	if initialSwapTime then
+		initialSwapTime = initialSwapTime - s
+		if initialSwapTime < 0.1 and firstSwap then
+			SwapBacklog()
+			firstSwap = nil
+		elseif initialSwapTime < 0 then
+			SwapBacklog()
+			initialSwapTime = nil
+		end
 	end
 end
 
@@ -1376,7 +1472,9 @@ function widget:Initialize()
 	window_chat = MakeMessageWindow("ProChat", true)
 	window_chat:AddChild(scrollpanel_chat)
 	window_chat:AddChild(backlogButton)
-	window_chat:AddChild(inputspace)
+	if options.enableChatBackground.value then
+		window_chat:AddChild(inputspace)
+	end
 	
 	window_console = MakeMessageWindow("ProConsole", options.enableConsole.value)
 	window_console:AddChild(scrollpanel_console)
@@ -1388,8 +1486,6 @@ function widget:Initialize()
 	end
 	
 	Spring.SendCommands({"console 0"})
-	
-	SetInputFontSize(15)
 	
 	HideInputSpace()
  	

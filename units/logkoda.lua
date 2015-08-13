@@ -21,7 +21,7 @@ unitDef = {
     description_pl = [[Lekki czolg]],
     fireproof      = [[1]],
     helptext       = [[The diminutive Kodachi is a unique raider. Its small yet agile chassis has enough armor and speed to get it close enough to fire its weapon, a napalm bomb. The Kodachi should run in, get a shot off, and withdraw before it takes significant damage. Damaged Kodachis regenerate out of combat.]],
-	helptext_de    = [[Der kleine Kodachi ist ein einzigartiger Raider. Seine kleines, aber feines Fahrwerk hat genug Panzerung und Geschwindigkeit, um nahe genug an den Feind zu kommen, damit seine Waffe, eine Napalmstreubombe, abgefeuert werden kann. Er sollte dabei einen Schuﬂ abgeben und sich danach solange wieder zur¸ckziehen, bis der Nachladevorgang abgeschlossen ist.]],
+	helptext_de    = [[Der kleine Kodachi ist ein einzigartiger Raider. Seine kleines, aber feines Fahrwerk hat genug Panzerung und Geschwindigkeit, um nahe genug an den Feind zu kommen, damit seine Waffe, eine Napalmstreubombe, abgefeuert werden kann. Er sollte dabei einen Schu√ü abgeben und sich danach solange wieder zur√ºckziehen, bis der Nachladevorgang abgeschlossen ist.]],
 	helptext_pl    = [[Kodachi to maly czolg, ktory jest jednak na tyle zwinny, by moc wystrzelic swoja podpalajaca bombe i uciec. Jego bron podpala ziemie, zadajac obrazenia znajdujacym sie na niej jednostkom. Uszkodzone Kodachi naprawiaja sie, gdy nie walcza.]],
 	specialreloadtime = [[850]],
   },
@@ -66,11 +66,11 @@ unitDef = {
       onlyTargetCategory = [[LAND SINK TURRET SHIP SWIM FLOAT HOVER GUNSHIP]],
     },
 	
-	{
-      def                = [[BOGUS_FAKE_NAPALM_BOMBLET]],
-      badTargetCategory  = [[GUNSHIP]],
-      onlyTargetCategory = [[]],
-    },
+	--{
+    --  def                = [[BOGUS_FAKE_NAPALM_BOMBLET]],
+    --  badTargetCategory  = [[GUNSHIP]],
+    --  onlyTargetCategory = [[]],
+    --},
 
   },
 
@@ -91,6 +91,11 @@ unitDef = {
 	  customParams        	  = {
 	    setunitsonfire = "1",
 		burnchance     = "1",
+
+		area_damage = 1,
+		area_damage_radius = 96,
+		area_damage_dps = 20,
+		area_damage_duration = 13.3,
       },
 	  
       damage                  = {
@@ -119,7 +124,7 @@ unitDef = {
     },
 	
 	BOGUS_FAKE_NAPALM_BOMBLET = {
-      name                    = [[Flame Bomb]],
+      name                    = [[Fake Flame Bomb]],
 	  accuracy				  = 1000,
       areaOfEffect            = 64,
 	  canattackground         = false,

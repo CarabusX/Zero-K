@@ -24,7 +24,6 @@ unitDef = {
   corpse                        = [[DEAD]],
 
   customParams                  = {
-    usetacai       = [[1]],
     description_fr = [[Batterie de Missiles Anti-Air ? Moyenne Port?e]],
 	description_de = [[Weitreichende Anti-Air Raketenbatterie]],
 	description_pl = [[Bateria rakiet przeciwlotniczych]],
@@ -43,6 +42,7 @@ unitDef = {
   iconType                      = [[staticskirmaa]],
   idleAutoHeal                  = 5,
   idleTime                      = 1800,
+  losEmitHeight                 = 40,
   mass                          = 318,
   maxDamage                     = 2500,
   maxSlope                      = 18,
@@ -100,8 +100,8 @@ unitDef = {
 	  },
 
       damage                  = {
-        default = 22.5,
-        planes  = 225,
+        default = 22.51,
+        planes  = 225.1,
         subs    = 12.5,
       },
 

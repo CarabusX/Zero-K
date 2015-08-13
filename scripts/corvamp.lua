@@ -14,7 +14,7 @@ local smokePiece = {base, engineL, engineR}
 local gun = false
 
 local RESTORE_DELAY = 250
-local FIRE_SLOWDOWN = 0.5
+local FIRE_SLOWDOWN = tonumber(UnitDef.customParams.combat_slowdown)
 
 --signals
 local SIG_Aim = 1
@@ -104,7 +104,6 @@ function script.BlockShot(num)
 	else
 		if Spring.GetUnitRulesParam(unitID, "selfMoveSpeedChange") ~= FIRE_SLOWDOWN then
 			Spring.SetUnitRulesParam(unitID, "selfMoveSpeedChange", FIRE_SLOWDOWN)
-			GG.attUnits[unitID] = true
 			GG.UpdateUnitAttributes(unitID)
 		end
 		StartThread(RestoreAfterDelay)

@@ -41,7 +41,7 @@ end
 ----------------------------------------------------
 local function SetupDefaultPreset()
 	-- Disable
-	widgetHandler:DisableWidget("Chili Chat 2.1")
+	widgetHandler:DisableWidget("Chili Chat 2.2")
 	widgetHandler:DisableWidget("Chili Deluxe Player List - Alpha 2.02")
 	widgetHandler:DisableWidget("Chili FactoryBar")
 	widgetHandler:DisableWidget("Chili FactoryPanel")
@@ -49,16 +49,19 @@ local function SetupDefaultPreset()
 	widgetHandler:DisableWidget("Chili Chat Bubbles")
 	widgetHandler:DisableWidget("Chili Keyboard Menu")
 	widgetHandler:DisableWidget("Chili Radial Build Menu")
-	widgetHandler:DisableWidget("Chili Economy Panel")
+	widgetHandler:DisableWidget("Chili Resource Bars Classic")
+	widgetHandler:DisableWidget("Chili Economy Panel with Balance Bar")
 	
 	-- Enable
 	widgetHandler:EnableWidget("Chili Minimap")
 	widgetHandler:EnableWidget("Chili Crude Player List")
 	widgetHandler:EnableWidget("Chili Integral Menu")
-	widgetHandler:EnableWidget("Chili Pro Console test")
-	widgetHandler:EnableWidget("Chili Resource Bars")
+	widgetHandler:EnableWidget("Chili Pro Console")
+	widgetHandler:EnableWidget("Chili Economy Panel Default")
 	widgetHandler:EnableWidget("Chili Core Selector")
 	widgetHandler:EnableWidget("Chili Selections & CursorTip")
+	
+	Spring.SendCommands("resbar 0")
 	
 	-- Settings for window positions and settings.
 	local screenWidth, screenHeight = Spring.GetWindowGeometry()
@@ -145,10 +148,10 @@ local function SetupDefaultPreset()
 	)
 	
 	-- Resource Bar
-	local resourceBarWidth = 430
+	local resourceBarWidth = 660
 	local resourceBarHeight = 50
 	local resourceBarX = math.min(screenWidth/2 - resourceBarWidth/2, screenWidth - resourceBarWidth - menuWidth)
-	WG.SetWindowPosAndSize("ResourceBars",
+	WG.SetWindowPosAndSize("EconomyPanelDefault",
 		resourceBarX,
 		0,
 		resourceBarWidth,
@@ -171,7 +174,7 @@ end
 ----------------------------------------------------
 local function SetupCraftyPreset()
 	-- Disable
-	widgetHandler:DisableWidget("Chili Chat 2.1")
+	widgetHandler:DisableWidget("Chili Chat 2.2")
 	widgetHandler:DisableWidget("Chili Deluxe Player List - Alpha 2.02")
 	widgetHandler:DisableWidget("Chili FactoryBar")
 	widgetHandler:DisableWidget("Chili FactoryPanel")
@@ -179,16 +182,19 @@ local function SetupCraftyPreset()
 	widgetHandler:DisableWidget("Chili Chat Bubbles")
 	widgetHandler:DisableWidget("Chili Keyboard Menu")
 	widgetHandler:DisableWidget("Chili Radial Build Menu")
-	widgetHandler:DisableWidget("Chili Economy Panel")
+	widgetHandler:DisableWidget("Chili Resource Bars Classic")
+	widgetHandler:DisableWidget("Chili Economy Panel with Balance Bar")
 	
 	-- Enable
 	widgetHandler:EnableWidget("Chili Minimap")
 	widgetHandler:EnableWidget("Chili Crude Player List")
 	widgetHandler:EnableWidget("Chili Integral Menu")
-	widgetHandler:EnableWidget("Chili Pro Console test")
-	widgetHandler:EnableWidget("Chili Resource Bars")
+	widgetHandler:EnableWidget("Chili Pro Console")
+	widgetHandler:EnableWidget("Chili Economy Panel Default")
 	widgetHandler:EnableWidget("Chili Core Selector")
 	widgetHandler:EnableWidget("Chili Selections & CursorTip")
+	
+	Spring.SendCommands("resbar 0")
 	
 	-- Settings for window positions and settings.
 	local screenWidth, screenHeight = Spring.GetWindowGeometry()
@@ -269,10 +275,10 @@ local function SetupCraftyPreset()
 	)
 	
 	-- Resource Bar
-	local resourceBarWidth = 430
+	local resourceBarWidth = 660
 	local resourceBarHeight = 50
 	local resourceBarX = math.min(screenWidth/2 - resourceBarWidth/2, screenWidth - resourceBarWidth - menuWidth)
-	WG.SetWindowPosAndSize("ResourceBars",
+	WG.SetWindowPosAndSize("EconomyPanelDefault",
 		resourceBarX,
 		0,
 		resourceBarWidth,
@@ -296,7 +302,7 @@ end
 ----------------------------------------------------
 local function SetupEnsemblePreset()
 	-- Disable
-	widgetHandler:DisableWidget("Chili Chat 2.1")
+	widgetHandler:DisableWidget("Chili Chat 2.2")
 	widgetHandler:DisableWidget("Chili Deluxe Player List - Alpha 2.02")
 	widgetHandler:DisableWidget("Chili FactoryBar")
 	widgetHandler:DisableWidget("Chili FactoryPanel")
@@ -304,16 +310,19 @@ local function SetupEnsemblePreset()
 	widgetHandler:DisableWidget("Chili Chat Bubbles")
 	widgetHandler:DisableWidget("Chili Keyboard Menu")
 	widgetHandler:DisableWidget("Chili Radial Build Menu")
-	widgetHandler:DisableWidget("Chili Economy Panel")
+	widgetHandler:DisableWidget("Chili Resource Bars Classic")
+	widgetHandler:DisableWidget("Chili Economy Panel with Balance Bar")
 	
 	-- Enable
 	widgetHandler:EnableWidget("Chili Minimap")
 	widgetHandler:EnableWidget("Chili Crude Player List")
 	widgetHandler:EnableWidget("Chili Integral Menu")
-	widgetHandler:EnableWidget("Chili Pro Console test")
-	widgetHandler:EnableWidget("Chili Resource Bars")
+	widgetHandler:EnableWidget("Chili Pro Console")
+	widgetHandler:EnableWidget("Chili Economy Panel Default")
 	widgetHandler:EnableWidget("Chili Core Selector")
 	widgetHandler:EnableWidget("Chili Selections & CursorTip")
+	
+	Spring.SendCommands("resbar 0")
 	
 	-- Settings for window positions and settings.
 	local screenWidth, screenHeight = Spring.GetWindowGeometry()
@@ -395,10 +404,10 @@ local function SetupEnsemblePreset()
 	)
 	
 	-- Resource Bar
-	local resourceBarWidth = 430
+	local resourceBarWidth = 660
 	local resourceBarHeight = 50
 	local resourceBarX = math.min(screenWidth/2 - resourceBarWidth/2, screenWidth - resourceBarWidth - menuWidth)
-	WG.SetWindowPosAndSize("ResourceBars",
+	WG.SetWindowPosAndSize("EconomyPanelDefault",
 		resourceBarX,
 		0,
 		resourceBarWidth,
@@ -421,7 +430,7 @@ end
 ----------------------------------------------------
 local function SetupWestwoodPreset()
 	-- Disable
-	widgetHandler:DisableWidget("Chili Chat 2.1")
+	widgetHandler:DisableWidget("Chili Chat 2.2")
 	widgetHandler:DisableWidget("Chili Deluxe Player List - Alpha 2.02")
 	widgetHandler:DisableWidget("Chili FactoryBar")
 	widgetHandler:DisableWidget("Chili FactoryPanel")
@@ -429,25 +438,28 @@ local function SetupWestwoodPreset()
 	widgetHandler:DisableWidget("Chili Chat Bubbles")
 	widgetHandler:DisableWidget("Chili Keyboard Menu")
 	widgetHandler:DisableWidget("Chili Radial Build Menu")
-	widgetHandler:DisableWidget("Chili Economy Panel")
+	widgetHandler:DisableWidget("Chili Resource Bars Classic")
+	widgetHandler:DisableWidget("Chili Economy Panel Default")
 	
 	-- Enable
 	widgetHandler:EnableWidget("Chili Minimap")
 	widgetHandler:EnableWidget("Chili Crude Player List")
 	widgetHandler:EnableWidget("Chili Integral Menu")
-	widgetHandler:EnableWidget("Chili Pro Console test")
-	widgetHandler:EnableWidget("Chili Resource Bars")
+	widgetHandler:EnableWidget("Chili Pro Console")
+	widgetHandler:EnableWidget("Chili Economy Panel with Balance Bar")
 	widgetHandler:EnableWidget("Chili Core Selector")
 	widgetHandler:EnableWidget("Chili Selections & CursorTip")
+	
+	Spring.SendCommands("resbar 0")
 	
 	-- Settings for window positions and settings.
 	local screenWidth, screenHeight = Spring.GetWindowGeometry()
 	
 	-- Resource Bar
 	local resourceBarWidth = screenWidth*5/22 + 20
-	local resourceBarHeight = 50
+	local resourceBarHeight = 65
 	local resourceBarX = screenWidth - resourceBarWidth
-	WG.SetWindowPosAndSize("ResourceBars",
+	WG.SetWindowPosAndSize("EconomyPanel",
 		resourceBarX,
 		0,
 		resourceBarWidth,
@@ -592,12 +604,8 @@ local firstUpdate = true
 function widget:Update()
 	if firstUpdate then
 		if options.setToDefault.value then
-			-- Default presets are not set. This lets current players
-			-- a set "Set To Default Once" to false without resetting 
-			-- their UI. After a week or so the set to default presets
-			-- should be enabled to make this widget the central point
-			-- for UI configuration, including default.
-			--SetupDefaultPreset()
+			-- This is where the defaults are set.
+			SetupDefaultPreset()
 			options.setToDefault.value = false
 		end
 		firstUpdate = false

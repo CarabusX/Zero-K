@@ -31,7 +31,7 @@ local myAllyTeamID = 666
 local powerTexture = 'Luaui/Images/visible_energy.png'
 local facplopTexture = 'Luaui/Images/factory.png'
 local rearmTexture = 'LuaUI/Images/noammo.png'
-local retreatTexture = 'Anims/cursorrepair_old.png'
+local retreatTexture = 'LuaUI/Images/unit_retreat.png'
 
 local lastLowPower = {}
 local lastFacPlop = {}
@@ -45,6 +45,10 @@ function SetIcons(unitID)
 	for _,unitID in ipairs(Spring.GetAllUnits()) do
 		local lowpower = Spring.GetUnitRulesParam(unitID, "lowpower") 
 		if lowpower then
+			local _,_,inbuild = Spring.GetUnitIsStunned(unitID)
+			if inbuild then
+				lowpower = 0 -- Draw as if not on low power
+			end
 			if (not lastLowPower[unitID]) or lastLowPower[unitID] ~= lowpower then
 				lastLowPower[unitID] = lowpower
 				if lowpower ~= 0 then

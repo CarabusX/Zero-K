@@ -19,6 +19,9 @@ unitDef = {
   corpse              = [[DEAD]],
 
   customParams        = {
+    amph_regen = 40,
+    amph_submerged_at = 40,
+	sink_on_emp    = 0,
     floattoggle    = [[1]],
     description_pl = [[Ciezki amfibijny bot szturmowy]],
     helptext       = [[The Grizzly is a classic assault unit - relatively slow, clumsy and next to unstoppable. Its weapon is a high power laser beam with high range and damage, ineffective against swarmers and fast aircraft but not much else. While its weapon cannot fire underwater, the Grizzly can float to surface in order to shoot.]],
@@ -54,7 +57,7 @@ unitDef = {
 
   },
 
-  sightDistance       = 605,
+  sightDistance       = 660,
   trackOffset         = 0,
   trackStrength       = 8,
   trackStretch        = 1,
@@ -94,11 +97,12 @@ unitDef = {
       },
 
       damage                  = {
-        default = 300,
+        default = 302.8,
         subs    = 15,
       },
 
       explosionGenerator      = [[custom:flash1bluedark]],
+	  fireTolerance           = 8192, -- 45 degrees
       fireStarter             = 90,
       impactOnly              = true,
       impulseBoost            = 0,
@@ -116,7 +120,6 @@ unitDef = {
       soundStart              = [[weapon/laser/heavy_laser3]],
       soundStartVolume        = 3,
       sweepfire               = false,
-      targetMoveError         = 0.2,
       texture1                = [[largelaserdark]],
       texture2                = [[flaredark]],
       texture3                = [[flaredark]],
@@ -161,7 +164,6 @@ unitDef = {
       soundStart              = [[weapon/laser/heavy_laser3]],
       soundStartVolume        = 3,
       sweepfire               = false,
-      targetMoveError         = 0.2,
       texture1                = [[largelaserdark]],
       texture2                = [[flaredark]],
       texture3                = [[flaredark]],

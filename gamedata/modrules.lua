@@ -17,6 +17,7 @@ local modrules  = {
     allowUnitCollisionDamage = true; -- defaults to false
     allowUnitCollisionOverlap = false,	-- defaults to true	-- this lets units clump close together when moving, after which they are pushed apart
     allowGroundUnitGravity = false,
+	allowDirectionalPathing = true,
   },
   
   construction = {
@@ -96,7 +97,7 @@ local modrules  = {
 
     -- these are all used in the following form:
     --   value = defValue * (1 + (scale * (exp / (exp + 1))))
-    powerScale  = 0.3;  -- defaults to 1.0
+    powerScale  = 0;  -- defaults to 1.0
     healthScale = 0;  -- defaults to 0.7
     reloadScale = 0;  -- defaults to 0.4
   },

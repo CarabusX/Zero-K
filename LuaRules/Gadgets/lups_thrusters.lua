@@ -1,5 +1,12 @@
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
+-- UNSYNCED ONLY
+if gadgetHandler:IsSyncedCode() then
+	return
+end
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+
 function gadget:GetInfo()
   return {
     name      = "Thrusters",
@@ -14,11 +21,6 @@ end
 
 local unitDefs = include("LuaRules/Configs/lups_thruster_fxs.lua")
 local UPDATE_PERIOD = 3
---------------------------------------------------------------------------------
---------------------------------------------------------------------------------
-if (gadgetHandler:IsSyncedCode()) then
-	return
-else
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
@@ -79,7 +81,7 @@ local function GameFrameUnitsCheck()
       speed = def.minSpeed
     end
     
-    if delta > 0.01 or delta < 0.01 then
+    if delta > 0.01 or delta < -0.01 then
       data.speed = speed
       local modDelta = delta + delta*def.accelMod -- give bigger thrust when accelerating then when at constant speed
       local modSpeed = speed + modDelta
@@ -148,8 +150,4 @@ function gadget:GameFrame(n)
     end
     GameFrameUnitsCheck()
   end
-end
-
---------------------------------------------------------------------------------
---------------------------------------------------------------------------------
 end

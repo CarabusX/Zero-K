@@ -45,26 +45,30 @@ end
 function script.FireWeapon(num)
 end
 
+function script.BlockShot(num, targetID)
+	return GG.OverkillPrevention_CheckBlock(unitID, targetID, 200.1, 35)
+end
+
 function script.Shot(num) 
 	gun_1 = not gun_1
 end
 
 function script.Killed(recentDamage, maxHealth)
 	local severity = recentDamage/maxHealth
-	if severity <= 0.25  then	
+	if severity <= 0.25 then	
 		Explode(base, sfxNone)
 		Explode(lWing, sfxNone)
 		Explode(rWing, sfxNone)
 		return 1
 	elseif severity <= 0.5 or ((Spring.GetUnitMoveTypeData(unitID).aircraftState or "") == "crashing") then
-		Explode(base, SFX.FALL + SFX.FIRE  + SFX.SMOKE  + SFX.EXPLODE_ON_HIT )
+		Explode(base, SFX.FALL + SFX.FIRE + SFX.SMOKE + SFX.EXPLODE_ON_HIT)
 		Explode(lWing, sfxFall)
-		Explode(rWing, SFX.FALL + SFX.FIRE  + SFX.SMOKE  + SFX.EXPLODE_ON_HIT)
+		Explode(rWing, SFX.FALL + SFX.FIRE + SFX.SMOKE + SFX.EXPLODE_ON_HIT)
 		return 1
-	elseif  severity <= 0.75  then
-		Explode(base, SFX.FALL + SFX.FIRE  + SFX.SMOKE  + SFX.EXPLODE_ON_HIT )
+	elseif severity <= 0.75 then
+		Explode(base, SFX.FALL + SFX.FIRE + SFX.SMOKE + SFX.EXPLODE_ON_HIT)
 		Explode(lWing, sfxFall)
-		Explode(rWing, SFX.FALL + SFX.FIRE  + SFX.SMOKE  + SFX.EXPLODE_ON_HIT)
+		Explode(rWing, SFX.FALL + SFX.FIRE + SFX.SMOKE + SFX.EXPLODE_ON_HIT)
 		return 2
 	else
 		Explode(base, sfxShatter)

@@ -15,12 +15,17 @@ unitDef = {
   canPatrol             = true,
   canstop               = [[1]],
   category              = [[LAND]],
+  collisionVolumeOffsets = [[0 0 0]],
+  collisionVolumeScales  = [[30 48 30]],
+  collisionVolumeTest    = 1,
+  collisionVolumeType    = [[cylY]],
   corpse                = [[DEAD]],
 
   customParams          = {
     description_pl = [[Wyrzutnia czarnych dziur]],
     helptext       = [[The Placeholder is a support unit. Its projectiles create a vacuum that sucks in nearby units, clustering and holding them in place to help finish them off.]],
     helptext_pl    = [[Pociski Placeholdera zasysaja i utrzymuja w miejscu okoliczne jednostki, co pozwala je skutecznie wykonczyc.]],
+    midposoffset   = [[0 10 0]],
   },
 
   explodeAs             = [[BIG_UNITEX]],
@@ -30,6 +35,7 @@ unitDef = {
   idleAutoHeal          = 5,
   idleTime              = 1800,
   leaveTracks           = true,
+  losEmitHeight         = 40,
   mass                  = 157,
   maxDamage             = 900,
   maxSlope              = 36,
@@ -43,7 +49,7 @@ unitDef = {
   script		        = [[jumpriot.lua]],
   seismicSignature      = 4,
   selfDestructAs        = [[BIG_UNITEX]],
-  selfDestructCountdown = 1,
+  selfDestructCountdown = 5,
 
   sfxtypes              = {
 
@@ -95,6 +101,14 @@ unitDef = {
 
 	  customParams            = {
 	    falldamageimmunity = [[120]],
+
+		area_damage = 1,
+		area_damage_radius = 70,
+		area_damage_dps = 5600,
+		area_damage_is_impulse = 1,
+		area_damage_duration = 13.3,
+		area_damage_range_falloff = 0.4,
+		area_damage_time_falloff = 0.6,
 	  },
 	  
       damage                  = {
@@ -118,7 +132,6 @@ unitDef = {
       soundStartVolume        = 6000,
       soundHitVolume          = 6000,
       startsmoke              = [[1]],
-      targetMoveError         = 0,
       turret                  = true,
       weaponType              = [[Cannon]],
       weaponVelocity          = 550,

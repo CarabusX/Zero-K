@@ -8,7 +8,7 @@ unitDef = {
   buildCostEnergy        = 0,
   buildCostMetal         = 0,
   builder                = false,
-  buildPic               = [[CORMINE1.png]],
+  buildPic               = [[wolverine_mine.png]],
   buildTime              = 0,
   canAttack              = true,
   canGuard               = false,
@@ -30,6 +30,7 @@ unitDef = {
     helptext_pl    = [[Ta mina nie eksploduje, lecz wystrzeliwuje kilka pociskow w aktywujacego ja wroga. Po minucie deaktywuje sie.]],
     dontcount = [[1]],
 	mobilebuilding = [[1]],
+	idle_cloak = 1,
   },
 
   explodeAs              = [[NOWEAPON]],
@@ -50,7 +51,7 @@ unitDef = {
   minCloakDistance       = 50,
   noAutoFire             = false,
   noChaseCategory        = [[FIXEDWING LAND SINK TURRET SHIP SATELLITE SWIM GUNSHIP FLOAT SUB HOVER]],
-  objectName             = [[logmine.s3o]],
+  objectName             = [[claw.s3o]],
   onoffable              = false,
   power                  = 60,
   reclaimable            = false,
@@ -88,6 +89,11 @@ unitDef = {
       craterBoost             = 0,
       craterMult              = 0,
 
+	  customparams = {
+		stats_hide_dps = 1, -- one use
+		stats_hide_reload = 1,
+	  },
+	  
       damage                  = {
         default = 40,
         planes  = 40,

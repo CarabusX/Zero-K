@@ -32,8 +32,10 @@ unitDef = {
     occupationStrength = 1,
     pylonrange         = 50,
 	ismex              = 1,
+	aimposoffset       = [[0 -4 0]],
 	midposoffset       = [[0 -10 0]],
 	modelradius        = [[15]],
+	removewait         = 1,
   },
 
   energyUse              = 0,
@@ -54,6 +56,7 @@ unitDef = {
   noAutoFire             = false,
   objectName             = [[AMETALEXTRACTORLVL1.S3O]],
   onoffable              = false,
+  script                 = "cormex.lua",
   seismicSignature       = 4,
   selfDestructAs         = [[SMALL_BUILDINGEX]],
   side                   = [[CORE]],

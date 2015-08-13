@@ -45,7 +45,7 @@ unitDef = {
   script                 = [[spiderriot.lua]],
   seismicSignature       = 4,
   selfDestructAs         = [[BIG_UNITEX]],
-  sightDistance          = 660,
+  sightDistance          = 366,
   trackOffset            = 0,
   trackStrength          = 10,
   trackStretch           = 1,
@@ -75,7 +75,7 @@ unitDef = {
       craterMult              = 0,
 
       damage                  = {
-        default = 60,
+        default = 60.01,
         subs    = 3,
       },
 

@@ -54,6 +54,7 @@ unitDef = {
   noAutoFire          = false,
   noChaseCategory     = [[TERRAFORM SATELLITE SUB]],
   objectName          = [[nsaclash.s3o]],
+  script              = [[nsaclash.lua]],
   seismicSignature    = 4,
   selfDestructAs      = [[BIG_UNITEX]],
 
@@ -68,8 +69,7 @@ unitDef = {
   },
 
   side                = [[ARM]],
-  sightDistance       = 484,
-  sonarDistance       = 300,
+  sightDistance       = 495,
   smoothAnim          = true,
   turninplace         = 0,
   turnRate            = 480,
@@ -93,10 +93,10 @@ unitDef = {
       areaOfEffect            = 96,
       cegTag                  = [[missiletrailyellow]],
       craterBoost             = 1,
-      craterMult              = 2,
+      craterMult              = 1.4,
 
       damage                  = {
-        default = 310,
+        default = 311,
       },
 
       fireStarter             = 70,

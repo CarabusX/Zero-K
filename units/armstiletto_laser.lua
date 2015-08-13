@@ -22,15 +22,15 @@ unitDef = {
   cruiseAlt           = 180,
 
   customParams        = {
-    description_bp = [[Bombardeiro de raios PEM invisível a radar]],
-    description_de = [[EMP-Tarnkappenbomber]],
-    description_fr = [[Bombardier EMP Furtif]],
-    description_pl = [[Bombowiec EMP]],
+    description_bp = [[Bombardeiro de desarmar]],
+    description_de = [[Entwaffnungbomber]],
+    description_fr = [[Bombardier desarmant]],
+    description_pl = [[Bombowiec rozbrajajacy]],
     helptext       = [[Fast bomber armed with a lightning generator that disarms units in a wide area under it.]],
-    helptext_bp    = [[Bombardeiro rápido a radar equipado com um gerador de raios ao invés de bombas que dispara raios de PEM contra o inimigo ao atacar.]],
-    helptext_de    = [[Schneller Tarnkappenbomber, der mit einem Stossspannungsgenerator zum Paralysieren großflächiger Gebiete bewaffnet ist.]],
-    helptext_fr    = [[Rapide, armé de canons EMP pouvant paralyser les unités dans une large bande.]],
-    helptext_pl    = [[Szybki bombowiec, ktory jest w stanie rozbroic jednostki w wyznaczonym obszarze.]],
+    helptext_bp    = [[Bombardeiro rapido, que dispara raios de desarmar.]],
+    helptext_de    = [[Schneller Entwaffnungbomber, der mit einem Stossspannungsgenerator zum Entwaffnen großflächiger Gebiete bewaffnet ist.]],
+    helptext_fr    = [[Rapide, armé de canons desarmant pouvant désarmer les unités dans une large bande.]],
+    helptext_pl    = [[Szybki bombowiec, ktory jest w stanie rozbroic jednostki w szerokim obszarze.]],
     modelradius    = [[10]],
   },
 
@@ -75,13 +75,14 @@ unitDef = {
   weaponDefs          = {
 
     ARMBOMBLIGHTNING = {
-      name                    = [[BombLightning]],
+      name                    = [[Lightning]],
       areaOfEffect            = 192,
       avoidFeature            = false,
       avoidFriendly           = false,
       beamTime                = 0.01,
       burst                   = 80,
       burstRate               = 0.3,
+	  cameraShake             = 150,
       canattackground         = false,
       collideFriendly         = false,
       coreThickness           = 0.6,
@@ -89,13 +90,13 @@ unitDef = {
       craterMult              = 0,
 
       customParams        = {
-        disarmDamageMult = 3,
+        disarmDamageMult = 1,
         disarmDamageOnly = 1,
         disarmTimer      = 16, -- seconds
       },
  
       damage                  = {
-        default        = 225,
+        default        = 675,
       },
 
       edgeEffectiveness       = 0.4,

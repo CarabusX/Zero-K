@@ -43,6 +43,7 @@ unitDef = {
   idleAutoHeal           = 5,
   idleTime               = 1800,
   leaveTracks            = true,
+  losEmitHeight          = 60,
   mass                   = 1387,
   maxDamage              = 36000,
   maxSlope               = 36,
@@ -117,8 +118,8 @@ unitDef = {
       },
 
       damage                  = {
-        default = 600,
-        planes  = 600,
+        default = 600.1,
+        planes  = 600.1,
         subs    = 30,
       },
 
@@ -137,7 +138,6 @@ unitDef = {
       rgbColor                = [[0.25 0 1]],
       soundStart              = [[weapon/laser/heavy_laser6]],
       soundStartVolume        = 3,
-      targetMoveError         = 0.3,
       texture1                = [[largelaserdark]],
       texture2                = [[flaredark]],
       texture3                = [[flaredark]],
@@ -233,8 +233,8 @@ unitDef = {
       soundStart              = [[weapon/LightningBolt]],
       soundStartVolume        = 2,
       soundTrigger            = true,
+      sprayAngle              = 1000,
       startsmoke              = [[1]],
-      targetMoveError         = 0.3,
       texture1                = [[lightning]],
       thickness               = 10,
       turret                  = true,

@@ -96,8 +96,8 @@ unitDef = {
       craterMult              = 0,
 
       damage                  = {
-        default = 150,
-        planes  = 150,
+        default = 150.1,
+        planes  = 150.1,
         subs    = 7.5,
       },
 
@@ -113,7 +113,6 @@ unitDef = {
       reloadtime              = 6,
       soundHit                = [[explosion/ex_med5]],
       soundStart              = [[weapon/cannon/cannon_fire1]],
-      targetMoveError         = 0.3,
       turret                  = true,
       weaponType              = [[Cannon]],
       weaponVelocity          = 260,

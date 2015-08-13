@@ -13,8 +13,9 @@ local leg5 = piece 'leg5' 	-- middle left
 local leg6 = piece 'leg6' 	-- front left
 local platform, gun, elevator, elevator2, panel_r, panel_l, cover_r, cover_l, flare = piece('platform', 'gun', 'elevator', 'elevator2', 'panel_r', 'panel_l', 'cover_r', 'cover_l', 'flare')
 
+
 local smokePiece = {base, gun}
-local nanoPieces = {flare}
+local nanoPiece = flare
 
 --------------------------------------------------------------------------------
 -- constants
@@ -77,7 +78,7 @@ end
 
 function script.Create()
 	StartThread(SmokeUnit, smokePiece)
-	Spring.SetUnitNanoPieces(unitID, nanoPieces)
+	Spring.SetUnitNanoPieces(unitID, {nanoPiece})
 end
 
 function script.StartMoving()
@@ -126,13 +127,13 @@ function script.StopBuilding()
 end
 
 function script.QueryNanoPiece()
-	GG.LUPS.QueryNanoPiece(unitID,unitDefID,Spring.GetUnitTeam(unitID),gun)
-	return gun
+	GG.LUPS.QueryNanoPiece(unitID,unitDefID,Spring.GetUnitTeam(unitID),flare)
+	return flare
 end
 
 function script.Killed(recentDamage, maxHealth)
 	local severity = recentDamage/maxHealth
-	if severity <= .25  then
+	if severity <= .25 then
 		Explode(panel_l, sfxNone)
 		Explode(base, sfxNone)
 		Explode(panel_r, sfxNone)
@@ -144,7 +145,7 @@ function script.Killed(recentDamage, maxHealth)
 		Explode(leg6, sfxNone)
 		Explode(gun, sfxNone)
 		return 1
-	elseif  severity <= .50  then
+	elseif severity <= .50 then
 		Explode(panel_l, sfxFall)
 		Explode(base, sfxNone)
 		Explode(panel_r, sfxFall)
@@ -156,28 +157,28 @@ function script.Killed(recentDamage, maxHealth)
 		Explode(leg6, sfxFall)
 		Explode(gun, sfxShatter)
 		return 1
-	elseif severity <= .99  then
-		Explode(panel_l, sfxFall + sfxSmoke  + sfxFire  + sfxExplode )
+	elseif severity <= .99 then
+		Explode(panel_l, sfxFall + sfxSmoke + sfxFire + sfxExplode)
 		Explode(base, sfxNone)
-		Explode(panel_r, sfxFall + sfxSmoke  + sfxFire  + sfxExplode )
-		Explode(leg1, sfxFall + sfxSmoke  + sfxFire  + sfxExplode )
-		Explode(leg2, sfxFall + sfxSmoke  + sfxFire  + sfxExplode )
-		Explode(leg3, sfxFall + sfxSmoke  + sfxFire  + sfxExplode )
-		Explode(leg4, sfxFall + sfxSmoke  + sfxFire  + sfxExplode )
-		Explode(leg5, sfxFall + sfxSmoke  + sfxFire  + sfxExplode )
-		Explode(leg6, sfxFall + sfxSmoke  + sfxFire  + sfxExplode )
+		Explode(panel_r, sfxFall + sfxSmoke + sfxFire + sfxExplode)
+		Explode(leg1, sfxFall + sfxSmoke + sfxFire + sfxExplode)
+		Explode(leg2, sfxFall + sfxSmoke + sfxFire + sfxExplode)
+		Explode(leg3, sfxFall + sfxSmoke + sfxFire + sfxExplode)
+		Explode(leg4, sfxFall + sfxSmoke + sfxFire + sfxExplode)
+		Explode(leg5, sfxFall + sfxSmoke + sfxFire + sfxExplode)
+		Explode(leg6, sfxFall + sfxSmoke + sfxFire + sfxExplode)
 		Explode(gun, sfxShatter)
 		return 2
 	else
-		Explode(panel_l, sfxFall + sfxSmoke  + sfxFire  + sfxExplode )
+		Explode(panel_l, sfxFall + sfxSmoke + sfxFire + sfxExplode)
 		Explode(base, sfxNone)
-		Explode(panel_r, sfxFall + sfxSmoke  + sfxFire  + sfxExplode )
-		Explode(leg1, sfxFall + sfxSmoke  + sfxFire  + sfxExplode )
-		Explode(leg2, sfxFall + sfxSmoke  + sfxFire  + sfxExplode )
-		Explode(leg3, sfxFall + sfxSmoke  + sfxFire  + sfxExplode )
-		Explode(leg4, sfxFall + sfxSmoke  + sfxFire  + sfxExplode )
-		Explode(leg5, sfxFall + sfxSmoke  + sfxFire  + sfxExplode )
-		Explode(leg6, sfxFall + sfxSmoke  + sfxFire  + sfxExplode )
+		Explode(panel_r, sfxFall + sfxSmoke + sfxFire + sfxExplode)
+		Explode(leg1, sfxFall + sfxSmoke + sfxFire + sfxExplode)
+		Explode(leg2, sfxFall + sfxSmoke + sfxFire + sfxExplode)
+		Explode(leg3, sfxFall + sfxSmoke + sfxFire + sfxExplode)
+		Explode(leg4, sfxFall + sfxSmoke + sfxFire + sfxExplode)
+		Explode(leg5, sfxFall + sfxSmoke + sfxFire + sfxExplode)
+		Explode(leg6, sfxFall + sfxSmoke + sfxFire + sfxExplode)
 		Explode(gun, sfxShatter)
 		return 2
 	end

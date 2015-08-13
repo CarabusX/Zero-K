@@ -107,8 +107,8 @@ unitDef = {
       craterMult              = 0,
 
       damage                  = {
-        default = 10.3,
-        planes  = 10.3,
+        default = 10,
+        planes  = 10,
         subs    = 0.5,
       },
 
@@ -127,7 +127,6 @@ unitDef = {
       soundHit                = [[weapon/laser/lasercannon_hit]],
       soundStart              = [[weapon/laser/lasercannon_fire]],
       soundTrigger            = true,
-      targetMoveError         = 0.15,
       thickness               = 2.5,
       tolerance               = 10000,
       turret                  = true,

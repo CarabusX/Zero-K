@@ -43,6 +43,7 @@ unitDef = {
 	soundselect = [[bot_select]],
 	soundbuild = [[builder_start]],
     commtype = [[2]],
+    aimposoffset   = [[0 5 0]],
   },
 
   energyMake          = 6,
@@ -153,7 +154,6 @@ unitDef = {
       soundStart              = [[weapon/laser/pulse_laser3]],
       soundTrigger            = true,
       sweepfire               = false,
-      targetMoveError         = 0.05,
       texture1                = [[largelaser]],
       texture2                = [[flare]],
       texture3                = [[flare]],

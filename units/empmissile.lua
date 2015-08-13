@@ -70,13 +70,19 @@ unitDef = {
       craterBoost             = 0,
       craterMult              = 0,
 
+	  customparams = {
+		stats_hide_dps = 1, -- one use
+		stats_hide_reload = 1,
+	  },
+
       damage                  = {
-        default = 30000,
+        default = 30003.1,
       },
 
       edgeEffectiveness       = 1,
       explosionGenerator      = [[custom:EMPMISSILE_EXPLOSION]],
       fireStarter             = 0,
+      flightTime              = 20,
       impulseBoost            = 0,
       impulseFactor           = 0,
       interceptedByShieldType = 1,

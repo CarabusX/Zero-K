@@ -21,6 +21,7 @@ local SIG_BEACON = 2
 --------------------------------------------------------------------------------------
 -- Create beacon animation and delay
 local spGetUnitRulesParam = Spring.GetUnitRulesParam
+local BEACON_SPAWN_SPEED = 9 / tonumber(UnitDef.customParams.teleporter_beacon_spawn_time)
 
 local function Create_Beacon_Thread(x,z)
 	local y = Spring.GetGroundHeight(x,z) or 0
@@ -34,8 +35,8 @@ local function Create_Beacon_Thread(x,z)
 	
 	Spring.PlaySoundFile("sounds/misc/teleport_loop.wav", 3, x, y, z)
 	for i = 1, 90 do
-		local speedMult = 1 - (spGetUnitRulesParam(unitID,"slowState") or 0)
-		Turn( body , y_axis, math.rad(i*4), math.rad(40*speedMult) )
+		local speedMult = (1 - (spGetUnitRulesParam(unitID,"slowState") or 0)) * BEACON_SPAWN_SPEED
+		Turn(body, y_axis, math.rad(i*4), math.rad(40*speedMult))
 		Sleep(100/speedMult)
 		local stunnedOrInbuild = Spring.GetUnitIsStunned(unitID)
 		local disarm = spGetUnitRulesParam(unitID,"disarmed") == 1
@@ -77,29 +78,29 @@ local function DeployTeleport_Thread()
 	Signal(SIG_WALK)
 	SetSignalMask(SIG_DEPLOY)
 	
-	Turn( rthigh , x_axis, 0, math.rad(1000)  )
-	Turn( rshin , x_axis, 0, math.rad(1000)  )
-	Turn( rfoot , x_axis, 0, math.rad(1000)  )
-	Turn( lthigh , x_axis, 0, math.rad(1000)  )
-	Turn( lshin , x_axis, 0, math.rad(1000)  )
-	Turn( lfoot , x_axis, 0, math.rad(1000)  )
-	Turn( pelvis , z_axis, 0, math.rad(1000)  )
-	Move( pelvis , y_axis, 0, 10 )
+	Turn(rthigh, x_axis, 0, math.rad(1000))
+	Turn(rshin, x_axis, 0, math.rad(1000))
+	Turn(rfoot, x_axis, 0, math.rad(1000))
+	Turn(lthigh, x_axis, 0, math.rad(1000))
+	Turn(lshin, x_axis, 0, math.rad(1000))
+	Turn(lfoot, x_axis, 0, math.rad(1000))
+	Turn(pelvis, z_axis, 0, math.rad(1000))
+	Move(pelvis, y_axis, 0, 10)
 	
 	Sleep(33)
 	
 	Sleep(33)
-	Turn( body , x_axis, math.rad(90), math.rad(90*DEPLOY_SPEED)  )
-	Move( pelvis , y_axis, 11, 11*DEPLOY_SPEED )
-	Move( pelvis , z_axis, -6, 6*DEPLOY_SPEED )
+	Turn(body, x_axis, math.rad(90), math.rad(90*DEPLOY_SPEED))
+	Move(pelvis, y_axis, 11, 11*DEPLOY_SPEED)
+	Move(pelvis, z_axis, -6, 6*DEPLOY_SPEED)
 	
-	Turn( rthigh , x_axis, math.rad(-50), math.rad(50*DEPLOY_SPEED)  )
-	Turn( rshin , x_axis, math.rad(70), math.rad(70*DEPLOY_SPEED)  )
-	Turn( rfoot , x_axis, math.rad(-15), math.rad(15*DEPLOY_SPEED)  )
+	Turn(rthigh, x_axis, math.rad(-50), math.rad(50*DEPLOY_SPEED))
+	Turn(rshin, x_axis, math.rad(70), math.rad(70*DEPLOY_SPEED))
+	Turn(rfoot, x_axis, math.rad(-15), math.rad(15*DEPLOY_SPEED))
 	
-	Turn( lthigh , x_axis, math.rad(-50), math.rad(50*DEPLOY_SPEED)  )
-	Turn( lshin , x_axis, math.rad(70), math.rad(70*DEPLOY_SPEED)  )
-	Turn( lfoot , x_axis, math.rad(-15), math.rad(15*DEPLOY_SPEED)  )
+	Turn(lthigh, x_axis, math.rad(-50), math.rad(50*DEPLOY_SPEED))
+	Turn(lshin, x_axis, math.rad(70), math.rad(70*DEPLOY_SPEED))
+	Turn(lfoot, x_axis, math.rad(-15), math.rad(15*DEPLOY_SPEED))
 
 	Sleep(1000/DEPLOY_SPEED)
 	
@@ -116,16 +117,16 @@ end
 
 function UndeployTeleport()
 	deployed = false
-	Turn( body , x_axis, math.rad(0), math.rad(90))
-	Move( body , z_axis, 0, 5 )
-	Turn( rthigh , x_axis, 0, math.rad(80)  )
-	Turn( rshin , x_axis, 0, math.rad(120)  )
-	Turn( rfoot , x_axis, 0, math.rad(80)  )
-	Turn( lthigh , x_axis, 0, math.rad(80)  )
-	Turn( lshin , x_axis, 0, math.rad(80)  )
-	Turn( lfoot , x_axis, 0, math.rad(80)  )
-	Turn( pelvis , z_axis, 0, math.rad(20)  )
-	Move( pelvis , y_axis, 0, 12 )
+	Turn(body, x_axis, math.rad(0), math.rad(90))
+	Move(body, z_axis, 0, 5)
+	Turn(rthigh, x_axis, 0, math.rad(80))
+	Turn(rshin, x_axis, 0, math.rad(120))
+	Turn(rfoot, x_axis, 0, math.rad(80))
+	Turn(lthigh, x_axis, 0, math.rad(80))
+	Turn(lshin, x_axis, 0, math.rad(80))
+	Turn(lfoot, x_axis, 0, math.rad(80))
+	Turn(pelvis, z_axis, 0, math.rad(20))
+	Move(pelvis, y_axis, 0, 12)
 end
 
 
@@ -149,7 +150,7 @@ function activity_mode(n)
 			SetUnitValue(COB.ACTIVATION, 1)
 		end
 
-		Spin(holder, z_axis, math.rad(spinmodes[n].holder*holderDirection) )
+		Spin(holder, z_axis, math.rad(spinmodes[n].holder*holderDirection))
 		Spin(sphere, x_axis, math.rad((math.random(spinmodes[n].sphere)+spinmodes[n].sphere)*plusOrMinusOne()))
 		Spin(sphere, y_axis, math.rad((math.random(spinmodes[n].sphere)+spinmodes[n].sphere)*plusOrMinusOne()))
 		Spin(sphere, z_axis, math.rad((math.random(spinmodes[n].sphere)+spinmodes[n].sphere)*plusOrMinusOne()))
@@ -163,9 +164,9 @@ end
 
 local function Walk()
 	
-	Turn( body , x_axis, math.rad(0), math.rad(90))
-	Move( body , z_axis, 0, 5 )
-	Turn( body , y_axis, math.rad(0), math.rad(80) )
+	Turn(body, x_axis, math.rad(0), math.rad(90))
+	Move(body, z_axis, 0, 5)
+	Turn(body, y_axis, math.rad(0), math.rad(80))
 	
 	Signal(SIG_DEPLOY)
 	Signal(SIG_BEACON)
@@ -174,7 +175,7 @@ local function Walk()
 	while true do
 		local speedmult = (1 - (Spring.GetUnitRulesParam(unitID,"slowState") or 0))*SPEED
 		
-		Turn(pelvis, z_axis,  math.rad(0), math.rad(2)*speedmult)
+		Turn(pelvis, z_axis, math.rad(0), math.rad(2)*speedmult)
 		Move(pelvis, y_axis, 2, 1.5*speedmult)
 		
 		-- Right leg mid
@@ -189,7 +190,7 @@ local function Walk()
 		
 		Sleep(1000/speedmult)
 		
-		Turn(pelvis, z_axis,  math.rad(2), math.rad(2)*speedmult)
+		Turn(pelvis, z_axis, math.rad(2), math.rad(2)*speedmult)
 		Move(pelvis, y_axis, 3.5, 1.5*speedmult)
 		
 		-- Right leg back
@@ -204,7 +205,7 @@ local function Walk()
 		
 		Sleep(1000/speedmult)
 		
-		Turn(pelvis, z_axis,  math.rad(0), math.rad(2)*speedmult)
+		Turn(pelvis, z_axis, math.rad(0), math.rad(2)*speedmult)
 		Move(pelvis, y_axis, 2, 1.5*speedmult)
 		
 		-- Right leg raise
@@ -241,14 +242,14 @@ local function Stopping()
 	Signal(SIG_WALK)
 	SetSignalMask(SIG_WALK)
 	if not deployed then
-		Turn( rthigh , x_axis, 0, math.rad(80)  )
-		Turn( rshin , x_axis, 0, math.rad(120)  )
-		Turn( rfoot , x_axis, 0, math.rad(80)  )
-		Turn( lthigh , x_axis, 0, math.rad(80)  )
-		Turn( lshin , x_axis, 0, math.rad(80)  )
-		Turn( lfoot , x_axis, 0, math.rad(80)  )
-		Turn( pelvis , z_axis, 0, math.rad(20)  )
-		Move( pelvis , y_axis, 0, 12 )
+		Turn(rthigh, x_axis, 0, math.rad(80))
+		Turn(rshin, x_axis, 0, math.rad(120))
+		Turn(rfoot, x_axis, 0, math.rad(80))
+		Turn(lthigh, x_axis, 0, math.rad(80))
+		Turn(lshin, x_axis, 0, math.rad(80))
+		Turn(lfoot, x_axis, 0, math.rad(80))
+		Turn(pelvis, z_axis, 0, math.rad(20))
+		Move(pelvis, y_axis, 0, 12)
 	end
 	DeployTeleport()
 end
@@ -273,7 +274,7 @@ end
 
 function script.Killed(recentDamage, maxHealth)
 	local severity = recentDamage/maxHealth
-        if severity <= .50 then
+		if severity <= .50 then
 		Explode(lfoot, sfxNone)
 		Explode(lshin, sfxNone)
 		Explode(lthigh, sfxNone)
@@ -294,13 +295,13 @@ function script.Killed(recentDamage, maxHealth)
 		Explode(sphere, sfxFall)
 		return 2
 	else
-		Explode(lfoot, sfxFall + sfxSmoke  + sfxFire  + sfxExplode )
-		Explode(lshin, sfxFall + sfxSmoke  + sfxFire  + sfxExplode )
-		Explode(lthigh, sfxFall + sfxSmoke  + sfxFire  + sfxExplode )
-		Explode(rfoot, sfxFall + sfxSmoke  + sfxFire  + sfxExplode )
-		Explode(rshin, sfxFall + sfxSmoke  + sfxFire  + sfxExplode )
-		Explode(rthigh, sfxFall + sfxSmoke  + sfxFire  + sfxExplode )
-		Explode(body, sfxShatter + sfxExplode )
+		Explode(lfoot, sfxFall + sfxSmoke + sfxFire + sfxExplode)
+		Explode(lshin, sfxFall + sfxSmoke + sfxFire + sfxExplode)
+		Explode(lthigh, sfxFall + sfxSmoke + sfxFire + sfxExplode)
+		Explode(rfoot, sfxFall + sfxSmoke + sfxFire + sfxExplode)
+		Explode(rshin, sfxFall + sfxSmoke + sfxFire + sfxExplode)
+		Explode(rthigh, sfxFall + sfxSmoke + sfxFire + sfxExplode)
+		Explode(body, sfxShatter + sfxExplode)
 		Explode(sphere, sfxFall)
 		return 2
 	end

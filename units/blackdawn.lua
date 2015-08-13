@@ -89,7 +89,7 @@ unitDef = {
       craterMult              = 0.246,
 
       damage                  = {
-        default = 220,
+        default = 220.5,
         subs    = 11,
       },
 
@@ -131,6 +131,9 @@ unitDef = {
       description      = [[Wreckage - Black Dawn]],
       blocking         = true,
       category         = [[corpses]],
+	  collisionVolumeScales  = [[65 20 65]],
+	  collisionVolumeTest	 = 1,
+	  collisionVolumeType    = [[CylY]],
       damage           = 3400,
       energy           = 0,
       featureDead      = [[HEAP]],

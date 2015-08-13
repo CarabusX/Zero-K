@@ -40,6 +40,7 @@ local glText            = gl.Text
 
 local spGetActiveCommand 	= Spring.GetActiveCommand
 local spSetActiveCommand	= Spring.SetActiveCommand
+local spGetMouseState       = Spring.GetMouseState
 
 local spIsAboveMiniMap		= Spring.IsAboveMiniMap --
 --local spGetMiniMapGeometry	= (Spring.GetMiniMapGeometry or Spring.GetMouseMiniMapState)
@@ -52,6 +53,7 @@ local spGiveOrderToUnit   	= Spring.GiveOrderToUnit
 local spGetUnitPosition		= Spring.GetUnitPosition
 local spGetModKeyState		= Spring.GetModKeyState
 local spGetUnitBuildFacing  = Spring.GetUnitBuildFacing
+local spGetGameFrame        = Spring.GetGameFrame
 
 local spTraceScreenRay		= Spring.TraceScreenRay
 local spGetGroundHeight		= Spring.GetGroundHeight
@@ -85,7 +87,20 @@ local CMD_TERRAFORM_INTERNAL = 39801
 local Grid = 16 -- grid size, do not change without other changes.
 
 ---------------------------------
---Config
+-- Epic Menu
+---------------------------------
+options_path = 'Settings/Interface/Terraform'
+options_order = { 'staticMouseTime'}
+options = {
+	staticMouseTime = {
+		name = "Structure Terraform Press Time",
+		type = "number",
+		value = 1, min = 0, max = 10, step = 0.05,
+	},
+}
+
+---------------------------------
+-- Config
 ---------------------------------
 
 -- for command canceling when the command has been given and shift is de-pressed
@@ -139,6 +154,7 @@ end
 ----------------------------------
 -- Global Vars
 
+local placingRectangle = false
 local drawingLasso = false
 local drawingRectangle = false
 local drawingRamp = false
@@ -147,7 +163,11 @@ local terraform_type = 0 -- 1 = level, 2 = raise, 3 = smooth, 4 = ramp, 5 = rest
 
 local volumeSelection = 0
 
+local currentlyActiveCommand = false
 local mouseBuilding = false
+
+local buildToGive = false
+local buildingPress = false
 
 local terraformHeight = 0
 local orHeight = 0 -- store ground height
@@ -168,10 +188,12 @@ local mouseUnit = {id = false}
 
 local mouseX, mouseY
 
----------------
-
+--------------------------------------------------------------------------------
+-- Command handling and issuing.
+--------------------------------------------------------------------------------
 
 local function stopCommand()
+	currentlyActiveCommand = false
 	drawingLasso = false
 	drawingRectangle = false
 	setHeight = false
@@ -185,12 +207,15 @@ local function stopCommand()
 	volumeDraw = false
 	groundGridDraw = false
 	mouseGridDraw = false
+	placingRectangle = false
+	drawingRamp = false
 	volumeSelection = 0
 	points = 0
 	terraform_type = 0
 end
 
 local function completelyStopCommand()
+	currentlyActiveCommand = false
 	spSetActiveCommand(-1)
 	originalCommandGiven = false
 	drawingLasso = false
@@ -206,14 +231,20 @@ local function completelyStopCommand()
 	volumeDraw = false
 	groundGridDraw = false
 	mouseGridDraw = false
+	placingRectangle = false
 	drawingRamp = false
 	volumeSelection = 0
 	points = 0
 	terraform_type = 0
 end
 
+local terraTag=-1
+function WG.Terraform_GetNextTag()
+	terraTag=terraTag + 1
+	return terraTag
+end
+
 local function SendCommand()
-			
 	local constructor = spGetSelectedUnits()
 
 	if terraform_type == 4 then
@@ -234,12 +265,13 @@ local function SendCommand()
 				i = i + 3
 			end
 					
-			i = i + 2
 			for j = 1, #constructor do
 				params[i] = constructor[j]
 				i = i + 1
 			end
 			
+			params[#params + 1] = WG.Terraform_GetNextTag()
+
 			local a,c,m,s = spGetModKeyState()
 			
 			if s then
@@ -268,11 +300,12 @@ local function SendCommand()
 				i = i + 2
 			end
 			
-			i = i + 2
 			for j = 1, #constructor do
 				params[i] = constructor[j]
 				i = i + 1
 			end
+			
+			params[#params + 1] = WG.Terraform_GetNextTag()
 			
 			local a,c,m,s = spGetModKeyState()
 			
@@ -286,10 +319,35 @@ local function SendCommand()
 			end
 		end
 	end
+	
+	if buildToGive then
+		if currentlyActiveCommand == CMD_LEVEL then
+			if (#constructor > 0) then
+				local myPlayerID = Spring.GetMyPlayerID()
+				buildToGive.needGameFrame = true
+				buildToGive.constructor = constructor
+				if myPlayerID then
+					-- ping is in seconds
+					local myPing = select(6, Spring.GetPlayerInfo(myPlayerID))
+					buildToGive.waitFrame = 30*ceil(myPing) + 5
+				else
+					buildToGive.waitFrame = 30
+				end
+			end
+		else
+			buildToGive = false
+		end
+	end
 	points = 0		
 end
 
----------------
+--------------------------------------------------------------------------------
+-- Drawing and placement utility function
+--------------------------------------------------------------------------------
+
+local function legalPos(pos)
+	return pos and pos[1] > 0 and pos[3] > 0 and pos[1] < Game.mapSizeX and pos[3] < Game.mapSizeZ
+end
 
 local function lineVolumeLevel()
 
@@ -757,14 +815,26 @@ local function calculateAreaPoints(mPoint, mPoints)
 	
 end
 
+local function SetFixedRectanglePoints(pos)	
+	if legalPos(pos) then
+		local x = floor((pos[1] + 8 - placingRectangle.oddX)/16)*16 + placingRectangle.oddX
+		local z = floor((pos[3] + 8 - placingRectangle.oddZ)/16)*16 + placingRectangle.oddZ
+		
+		point[1].y = spGetGroundHeight(x, z)
+		point[2].x = x - placingRectangle.halfX
+		point[2].z = z - placingRectangle.halfZ
+		point[3].x = x + placingRectangle.halfX
+		point[3].z = z + placingRectangle.halfZ
+		
+		placingRectangle.legalPos = true
+	else
+		placingRectangle.legalPos = false
+	end
+end
+
 --------------------------------------------------------------------------------
 -- Mouse/keyboard Callins
 --------------------------------------------------------------------------------
-
-local function legalPos(pos)
-	return pos and pos[1] > 0 and pos[3] > 0 and pos[1] < Game.mapSizeX and pos[3] < Game.mapSizeZ
-end
-
 
 local function snapToHeight(heightArray, snapHeight, arrayCount)
 	local smallest = abs(heightArray[1] - snapHeight)
@@ -781,16 +851,69 @@ end
 
 function widget:MousePress(mx, my, button)
 
+	if button == 1 and placingRectangle and placingRectangle.legalPos then
+		local activeCmdIndex, activeid = spGetActiveCommand()
+		local index = Spring.GetCmdDescIndex(CMD_LEVEL)
+		spSetActiveCommand(index)
+		currentlyActiveCommand = CMD_LEVEL
+		
+		local mx,my = spGetMouseState()
+		
+		setHeight = true
+		drawingRectangle = false
+		placingRectangle = false
+		
+		mouseX = mx
+		mouseY = my
+		
+		local x1, z1 = point[2].x, point[2].z
+		local x2, z2 = point[3].x-1, point[3].z-1
+		
+		buildToGive = {
+			facing = Spring.GetBuildFacing(),
+			cmdID = activeid,
+			x = (x1 + x2)/2,
+			z = (z1 + z2)/2,
+		}
+
+		terraformHeight = point[1].y
+		storedHeight = point[1].y
+		
+		points = 5
+		point[1] = {x = x1, z = z1}
+		point[2] = {x = x1, z = z2}
+		point[3] = {x = x2, z = z2}
+		point[4] = {x = x2, z = z1}
+		point[5] = {x = x1, z = z1}
+
+		loop = 1
+		calculateAreaPoints(point,points)
+		
+		if (groundGridDraw) then 
+			gl.DeleteList(groundGridDraw);
+			groundGridDraw = nil 
+		end
+		groundGridDraw = glCreateList(glBeginEnd, GL_LINES, groundGrid)
+	
+		if (volumeDraw) then
+			gl.DeleteList(volumeDraw); volumeDraw=nil
+			gl.DeleteList(mouseGridDraw); mouseGridDraw=nil
+		end
+		volumeDraw = glCreateList(glBeginEnd, GL_LINES, lineVolumeLevel)
+		mouseGridDraw = glCreateList(glBeginEnd, GL_LINES, mouseGridLevel)
+		return true
+	end
+	
 	local toolTip = Spring.GetCurrentTooltip()
 	if not (toolTip == "" or st_find(toolTip, "TechLevel") or st_find(toolTip, "Terrain type") or st_find(toolTip, "Metal:")) then
 		return false
 	end
-
+	
 	local activeCmdIndex, activeid = spGetActiveCommand()
 	
 	if ((activeid == CMD_LEVEL) or (activeid == CMD_RAISE) or (activeid == CMD_SMOOTH) or (activeid == CMD_RESTORE) or (activeid == CMD_BUMPY)) 
-			and not (setHeight or drawingRectangle or drawingLasso or drawingRamp) then
-	
+			and not (setHeight or drawingRectangle or drawingLasso or drawingRamp or placingRectangle) then
+
 		if button == 1 then
 			if not spIsAboveMiniMap(mx, my) then
 		
@@ -806,19 +929,16 @@ function widget:MousePress(mx, my, button)
 						--if (ud.isBuilding == true or ud.maxAcc == 0) then
 							mouseUnit = {id = id, ud = ud}
 						drawingRectangle = true
-						drawingLasso = false
 						point[1] = {x = floor((pos[1])/16)*16, y = spGetGroundHeight(pos[1],pos[3]), z = floor((pos[3])/16)*16}
 						point[2] = {x = floor((pos[1])/16)*16, y = spGetGroundHeight(pos[1],pos[3]), z = floor((pos[3])/16)*16}
 						point[3] = {x = floor((pos[1])/16)*16, y = spGetGroundHeight(pos[1],pos[3]), z = floor((pos[3])/16)*16}
 						--end
 					elseif a then
 						drawingRectangle = true
-						drawingLasso = false
 						point[1] = {x = floor((pos[1])/16)*16, y = spGetGroundHeight(pos[1],pos[3]), z = floor((pos[3])/16)*16}
 						point[2] = {x = floor((pos[1])/16)*16, y = spGetGroundHeight(pos[1],pos[3]), z = floor((pos[3])/16)*16}
 						point[3] = {x = floor((pos[1])/16)*16, y = spGetGroundHeight(pos[1],pos[3]), z = floor((pos[3])/16)*16}
 					else
-						drawingRectangle = false
 						drawingLasso = true
 						points = 1
 						point[1] = {x = pos[1], y = orHeight, z = pos[3]}
@@ -840,6 +960,8 @@ function widget:MousePress(mx, my, button)
 						terraform_type = 6
 					end
 					
+					currentlyActiveCommand = activeid
+					
 					return true
 				end
 			end
@@ -849,7 +971,7 @@ function widget:MousePress(mx, my, button)
 			return true
 		end
 		
-	elseif (activeid == CMD_RAMP) and not (setHeight or drawingRectangle or drawingLasso or drawingRamp) then
+	elseif (activeid == CMD_RAMP) and not (setHeight or drawingRectangle or drawingLasso or drawingRamp or placingRectangle) then
 		if button == 1 then
 			if not spIsAboveMiniMap(mx, my) then
 		
@@ -869,7 +991,6 @@ function widget:MousePress(mx, my, button)
 					mouseX = mx
 					mouseY = my
 					return true
-					
 				end
 			end
 		end
@@ -877,7 +998,6 @@ function widget:MousePress(mx, my, button)
 	end
 	
 	if setHeight and button == 1 then
-		
 		SendCommand()
 		stopCommand()
 		return true
@@ -889,8 +1009,8 @@ function widget:MousePress(mx, my, button)
 		drawingRamp = 3
 		return true
 	end
-	
-	if drawingLasso or setHeight or drawingRamp or drawingRectangle then
+
+	if drawingLasso or setHeight or drawingRamp or drawingRectangle or placingRectangle then
 		if button == 3 then
 			completelyStopCommand()
 			return true
@@ -1011,10 +1131,31 @@ function widget:MouseMove(mx, my, dx, dy, button)
 	return false
 end
 
+local function CheckPlacingRectangle(self)
+	if placingRectangle and not placingRectangle.drawing then
+		widgetHandler:UpdateWidgetCallIn("DrawWorld", self)
+		placingRectangle.drawing = true
+	end
+	
+	if buildToGive and buildToGive.needGameFrame then
+		widgetHandler:UpdateWidgetCallIn("GameFrame", self)
+		buildToGive.needGameFrame = false
+	end
+end
+
 function widget:Update(n)
 
+	CheckPlacingRectangle(self)
+	
+	if currentlyActiveCommand then
+		local activeCmdIndex, activeid = spGetActiveCommand()
+		if activeid ~= currentlyActiveCommand then
+			stopCommand()
+		end
+	end
+	
 	if setHeight then
-		local mx,my = Spring.GetMouseState()
+		local mx,my = spGetMouseState()
 			
 		if terraform_type == 1 then
 			local a,c,m,s = spGetModKeyState()
@@ -1077,7 +1218,7 @@ function widget:Update(n)
 		end
 	
 	elseif drawingRamp == 2 then
-		local mx,my = Spring.GetMouseState()
+		local mx,my = spGetMouseState()
 		local _, pos = spTraceScreenRay(mx, my, true)
 		if legalPos(pos) then
 			local dis = sqrt((point[1].x-pos[1])^2 + (point[1].z-pos[3])^2)
@@ -1103,6 +1244,54 @@ function widget:Update(n)
 				end
 			end
 		end
+	elseif placingRectangle then
+		local mx,my = spGetMouseState()
+		local _, pos = spTraceScreenRay(mx, my, true)
+		
+		local facing = Spring.GetBuildFacing()
+		local offFacing = (facing == 1 or facing == 3)
+		if offFacing ~= placingRectangle.offFacing then
+			placingRectangle.halfX, placingRectangle.halfZ = placingRectangle.halfZ, placingRectangle.halfX
+			placingRectangle.oddX, placingRectangle.oddZ = placingRectangle.oddZ, placingRectangle.oddX
+			placingRectangle.offFacing = offFacing
+		end
+		
+		SetFixedRectanglePoints(pos)
+		
+		return true
+	end
+	
+	local activeCmdIndex, activeid = spGetActiveCommand()
+	local mx, my, lmb, mmb, rmb = spGetMouseState()
+	
+	if lmb and activeid and activeid < 0 then
+		local _, pos = spTraceScreenRay(mx, my, true)
+		if pos and legalPos(pos) then
+			if buildingPress then
+				if pos[1] ~= buildingPress.pos[1] or pos[3] ~= buildingPress.pos[3] then
+					local a,c,m,s = spGetModKeyState()
+					if s then
+						buildingPress.frame = false
+					else
+						buildingPress.frame = spGetGameFrame() + options.staticMouseTime.value*30
+						buildingPress.pos[1] = pos[1]
+						buildingPress.pos[3] = pos[3]
+					end
+				end
+			else
+				buildingPress = {pos = pos, frame = spGetGameFrame() + options.staticMouseTime.value*30, unitDefID = -activeid}
+			end
+		end
+	else
+		buildingPress = false
+	end
+	
+	if buildingPress and buildingPress.frame and buildingPress.frame < spGetGameFrame() then
+		if buildingPress.unitDefID == -activeid then
+			WG.Terraform_SetPlacingRectangle(buildingPress.unitDefID)
+			CheckPlacingRectangle(self)
+			widget:MousePress(mx, my, 1)
+		end
 	end
 
 end
@@ -1111,7 +1300,6 @@ function widget:MouseRelease(mx, my, button)
 	
 	if drawingLasso then
 		if button == 1 then
-			--spSetActiveCommand(-1)
 			
 			local _, pos = spTraceScreenRay(mx, my, true)
 			if legalPos(pos) then
@@ -1410,15 +1598,13 @@ function widget:MouseRelease(mx, my, button)
 	return false
 end
 
-local keyCtrl = 306 
-
 function widget:KeyRelease(key)
 	if (key == KEYSYMS.LSHIFT or key == KEYSYMS.RSHIFT) and originalCommandGiven then
 		completelyStopCommand()
 	end
 	
 	if ((key == KEYSYMS.LCTRL) or (key == KEYSYMS.RCTRL)) and drawingLasso then
-		local mx,my = Spring.GetMouseState()
+		local mx,my = spGetMouseState()
 		local _, pos = spTraceScreenRay(mx, my, true)
 		if legalPos(pos) then
 				
@@ -1437,14 +1623,14 @@ end
 function widget:KeyPress(key)
 	
 	if key == KEYSYMS.ESCAPE then
-		if drawingLasso or setHeight or drawingRamp or drawingRectangle then
+		if drawingLasso or setHeight or drawingRamp or drawingRectangle or placingRectangle then
 			completelyStopCommand()
 			return true
 		end
 	end
 
 	if key == KEYSYMS.SPACE and ( 
-		(terraform_type == 1 and (setHeight or drawingLasso)) or 
+		(terraform_type == 1 and (setHeight or drawingLasso or placingRectangle)) or 
 		(terraform_type == 4 and (setHeight or drawingRamp)) or 
 		(terraform_type == 5 and drawingLasso)
 	) then
@@ -1465,6 +1651,79 @@ function widget:KeyPress(key)
 end
 
 --------------------------------------------------------------------------------
+-- Rectangle placement interaction
+--------------------------------------------------------------------------------
+
+function widget:GameFrame(f)
+	if not (buildToGive and buildToGive.waitFrame) then
+		widgetHandler:RemoveWidgetCallIn("GameFrame", self)
+		return
+	end
+	
+	buildToGive.waitFrame = buildToGive.waitFrame - 1
+	if buildToGive.waitFrame < 0 then
+		local constructor = buildToGive.constructor
+		
+		for i = 1, #constructor do
+			Spring.GiveOrderToUnit(constructor[i], buildToGive.cmdID, {buildToGive.x, 0, buildToGive.z, buildToGive.facing}, {"shift"})
+			i = i + 1
+		end
+		buildToGive = false
+		widgetHandler:RemoveWidgetCallIn("GameFrame", self)
+	end
+	
+end
+
+function Terraform_SetPlacingRectangle(unitDefID)
+	
+	-- Do no terraform with pregame placement.
+	if Spring.GetGameFrame() < 1 then
+		return false
+	end
+	
+	if not unitDefID or not UnitDefs[unitDefID] then
+		return false
+	end
+	
+	local ud = UnitDefs[unitDefID]
+		
+	local facing = Spring.GetBuildFacing()
+	local offFacing = (facing == 1 or facing == 3)
+	
+	local footX = ud.xsize/2
+	local footZ = ud.zsize/2
+	
+	if offFacing then
+		footX, footZ = footZ, footX
+	end
+	
+	placingRectangle = {
+		oddX = (footX%2)*8,
+		oddZ = (footZ%2)*8,
+		halfX = footX/2*16,
+		halfZ = footZ/2*16,
+		offFacing = offFacing
+	}
+	
+	currentlyActiveCommand = -unitDefID
+	terraform_type = 1
+	point[1] = {x = 0, y = 0, z = 0}
+	point[2] = {x = 0, y = 0, z = 0}
+	point[3] = {x = 0, y = 0, z = 0}
+	
+	local mx,my = spGetMouseState()
+	local _, pos = spTraceScreenRay(mx, my, true)
+	
+	SetFixedRectanglePoints(pos)
+	
+	return true
+end
+
+function widget:Initialize()
+	WG.Terraform_SetPlacingRectangle = Terraform_SetPlacingRectangle --set WG content at initialize rather than during file read to avoid conflict with local copy (for dev/experimentation)
+end
+
+--------------------------------------------------------------------------------
 -- Drawing
 --------------------------------------------------------------------------------
 
@@ -1473,7 +1732,7 @@ local function DrawLine()
 		glVertex(point[i].x,point[i].y,point[i].z)
 	end
 	
-	local mx,my = Spring.GetMouseState()
+	local mx,my = spGetMouseState()
 	local _, pos = spTraceScreenRay(mx, my, true)
 	if legalPos(pos) then
 		glVertex(pos[1],pos[2],pos[3])
@@ -1526,15 +1785,14 @@ end
 
 local function drawMouseText(y,text)
 
-	local mx,my = Spring.GetMouseState()
+	local mx,my = spGetMouseState()
 	glText(text, mx+40, my+y, 22,"")
 
 end
 
 
 function widget:DrawWorld()
-	
-	if not (drawingLasso or setHeight or drawingRectangle or drawingRamp) then
+	if not (drawingLasso or setHeight or drawingRectangle or drawingRamp or placingRectangle) then
 		widgetHandler:RemoveWidgetCallIn("DrawWorld", self)
 		return
 	end
@@ -1575,7 +1833,7 @@ function widget:DrawWorld()
 		elseif drawingLasso then
 			glColor(lassoColor)
 			glBeginEnd(GL_LINE_STRIP, DrawLine)
-		elseif drawingRectangle then
+		elseif drawingRectangle or (placingRectangle and placingRectangle.legalPos) then
 			glColor(lassoColor)
 			glBeginEnd(GL_LINE_STRIP, DrawRectangleLine)
 		end

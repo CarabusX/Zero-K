@@ -53,6 +53,11 @@ local airpadDefs = {
 		cap = 9, 
 		padPieceName={"landpad1","landpad2","landpad3","landpad4","landpad5","landpad6","landpad7","landpad8","landpad9"}
 	},
+	[UnitDefNames["reef"].id] = {
+		mobile = true, 
+		cap = 2, 
+		padPieceName={"LandingFore","LandingAft"}
+	},
 }
 
  -- land if pad is within this range
@@ -492,7 +497,7 @@ function gadget:GameFrame(n)
 			local unitDefID = data.unitDefID
 			local queue = spGetCommandQueue(bomberID, 1)
 			if (queue and queue[1] and queue[1].id == CMD_REARM) and 
-					(Spring.GetUnitSeparation(bomberID, padID, true) < ((unitDefID and bomberDefs[unitDefID] and bomberDefs[unitDefID].padRadius) or DEFAULT_PAD_RADIUS)) then
+					((Spring.GetUnitSeparation(bomberID, padID, true) or 1000) < ((unitDefID and bomberDefs[unitDefID] and bomberDefs[unitDefID].padRadius) or DEFAULT_PAD_RADIUS)) then
 				if not airpadRefreshEmptyspot then
 					RefreshEmptyspot_minusBomberLanding() --initialize empty pad count once
 					airpadRefreshEmptyspot = true
@@ -533,6 +538,10 @@ function gadget:GameFrame(n)
 			end
 		end
 	end
+end
+
+function GG.RequireRefuel(bomberID)
+	return (spGetUnitRulesParam(bomberID, "noammo") == 2) 
 end
 
 function GG.RefuelComplete(bomberID)

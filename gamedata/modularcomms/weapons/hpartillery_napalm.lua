@@ -8,9 +8,13 @@ local weaponDef = {
 
 	customParams            = {
 		muzzleEffectFire = [[custom:HEAVY_CANNON_MUZZLE]],
-		areadamage_preset = [[module_napalmgrenade]],
 		burntime = [[60]],
 		setunitsonfire = [[1]],
+
+		area_damage = 1,
+		area_damage_radius = 128,
+		area_damage_dps = 20,
+		area_damage_duration = 20,
 	},
 
 	damage                  = {
@@ -32,7 +36,6 @@ local weaponDef = {
 	size                    = 8,
 	soundHit                = [[weapon/cannon/wolverine_hit]],
 	soundStart              = [[weapon/cannon/wolverine_fire]],
-	targetMoveError         = 0.3,
 	turret                  = true,
 	weaponType              = [[Cannon]],
 	weaponVelocity          = 320,

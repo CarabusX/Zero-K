@@ -11,6 +11,7 @@ function gadget:GetInfo()
 end
 
 --local TESTMODE = true
+include("LuaRules/Configs/constants.lua")
 
 local spGetAllyTeamList = Spring.GetAllyTeamList
 local spIsGameOver      = Spring.IsGameOver
@@ -23,21 +24,21 @@ local totalTeamList = {}
 
 local awardDescs =
 {
-	pwn     = 'Complete Annihilation Award',
+	pwn     = 'Complete Annihilation',
 	navy    = 'Fleet Admiral',
 	air     = 'Airforce General',
 	nux     = 'Apocalyptic Achievement Award',
 	friend  = 'Friendly Fire Award',
-	shell   = 'Turtle Shell Award',
+	shell   = 'Turtle Shell',
 	fire    = 'Master Grill-Chef',
 	emp     = 'EMP Wizard',
 	slow    = 'Traffic Cop',
 	t3      = 'Experimental Engineer',
-	cap     = 'Capture Award',
+	cap     = 'Master of Puppets',
 	share   = 'Share Bear',
 	terra   = 'Legendary Landscaper',
 	reclaim = 'Spoils of War',
-	rezz    = 'Necromancy Award',
+	rezz    = 'Vile Necromancer',
 	vet     = 'Decorated Veteran',
 	ouch    = 'Big Purple Heart',
 	kam     = 'Kamikaze Award',
@@ -122,7 +123,7 @@ local expUnitTeam, expUnitDefID, expUnitExp = 0,0,0
 local awardList = {}
 local sentAwards = false
 
-local shareList_update = 32*60*5 -- five minute frames
+local shareList_update = TEAM_SLOWUPDATE_RATE*60*5 -- five minute frames
 
 local boats, t3Units, comms = {}, {}, {}
 
@@ -153,7 +154,6 @@ local flamerWeaponDefs = {}
 -------------------
 -- Resource tracking
 
-include("LuaRules/Configs/constants.lua")
 
 local allyTeamInfo = {}
 --local resourceInfo = {count = 0, data = {}}
@@ -567,7 +567,7 @@ function gadget:UnitTaken(unitID, unitDefID, oldTeam, newTeam)
 			end
 		end
 	else -- teams are allied
-		if shareListTemp1[oldTeam] and shareListTemp1[newTeam] then
+		if (unitDefID ~= terraunitDefID) and shareListTemp1[oldTeam] and shareListTemp1[newTeam] then
 			local ud = UnitDefs[unitDefID]
 			local mCost = ud and ud.metalCost or 0
 
@@ -710,8 +710,8 @@ end
 
 function gadget:GameFrame(n)
 
-	--if n%32 == 2 then
-	--	UpdateResourceStats((n-2)/32)
+	--if n%TEAM_SLOWUPDATE_RATE == 2 then
+	--	UpdateResourceStats((n-2)/TEAM_SLOWUPDATE_RATE)
 	--end
 
 	if n % shareList_update == 1 and not spIsGameOver() then

@@ -2,8 +2,8 @@ unitDef = {
   unitname            = [[hoverriot]],
   name                = [[Mace]],
   description         = [[Riot Hover]],
-  acceleration        = 0.03,
-  brakeRate           = 0.043,
+  acceleration        = 0.022,
+  brakeRate           = 0.03,
   buildCostEnergy     = 400,
   buildCostMetal      = 400,
   builder             = false,
@@ -65,7 +65,7 @@ unitDef = {
   sightDistance       = 407,
   smoothAnim          = true,
   turninplace         = 0,
-  turnRate            = 616,
+  turnRate            = 400,
   workerTime          = 0,
 
   weapons             = {
@@ -89,8 +89,13 @@ unitDef = {
       craterBoost             = 0,
       craterMult              = 0,
 
+	  customparams = {
+		stats_hide_damage = 1, -- continuous laser
+		stats_hide_reload = 1,
+	  },
+
       damage                  = {
-        default = 30.43,
+        default = 29.68,
         subs    = 1.75,
       },
 
@@ -105,7 +110,7 @@ unitDef = {
       lineOfSight             = true,
       minIntensity            = 1,
       noSelfDamage            = true,
-      range                   = 355,
+      range                   = 345,
       reloadtime              = 0.1,
       renderType              = 0,
       rgbColor                = [[0 1 0]],

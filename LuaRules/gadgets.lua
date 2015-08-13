@@ -79,6 +79,7 @@ VFS.Include(SCRIPT_DIR .. 'utilities.lua', nil, VFSMODE)
 local actionHandler = VFS.Include(HANDLER_DIR .. 'actions.lua', nil, VFSMODE)
 
 local reverseCompat = (Game.version:find('91.0') == 1)
+local unitDamagedOrderChange = not Spring.Utilities.IsCurrentVersionNewerThan(94, 698)
 --------------------------------------------------------------------------------
 
 function pgl() -- (print gadget list)  FIXME: move this into a gadget
@@ -152,6 +153,7 @@ local callInLists = {
 	"UnitCmdDone",
 	"UnitPreDamaged",
 	"UnitDamaged",
+	"UnitStunned",
 	"UnitTaken",
 	"UnitGiven",
 	"UnitEnteredRadar",
@@ -186,6 +188,7 @@ local callInLists = {
 	-- LuaRules CallIns (note: the *PreDamaged calls belong here too)
 	"CommandFallback",
 	"AllowCommand",
+	"AllowStartPosition",
 	"AllowUnitCreation",
 	"AllowUnitTransfer",
 	"AllowUnitBuildStep",
@@ -199,6 +202,7 @@ local callInLists = {
 	"TerraformComplete",
 	"AllowWeaponTargetCheck",
 	"AllowWeaponTarget",
+	"AllowWeaponInterceptTarget",
 	-- unsynced
 	"DrawUnit",
 	"DrawFeature",
@@ -1351,6 +1355,16 @@ function gadgetHandler:AllowWeaponTarget(attackerID, targetID, attackerWeaponNum
 	return allowed, priority
 end
 
+function gadgetHandler:AllowWeaponInterceptTarget(interceptorUnitID, interceptorWeaponNum, targetProjectileID)
+	for _, g in ipairs(self.AllowWeaponInterceptTargetList) do
+		if (not g:AllowWeaponInterceptTarget(interceptorUnitID, interceptorWeaponNum, targetProjectileID)) then
+			return false
+		end
+	end
+	
+	return true
+end
+
 --------------------------------------------------------------------------------
 --
 --  Unit call-ins
@@ -1371,6 +1385,12 @@ function gadgetHandler:UnitFinished(unitID, unitDefID, unitTeam)
   return
 end
 
+function gadgetHandler:UnitStunned(unitID, unitDefID, unitTeam, stunned)
+  for _,g in ipairs(self.UnitStunnedList) do
+    g:UnitStunned(unitID, unitDefID, unitTeam, stunned)
+  end
+  return
+end
 
 function gadgetHandler:UnitFromFactory(unitID, unitDefID, unitTeam,
                                        factID, factDefID, userOrders)
@@ -1432,7 +1452,7 @@ function gadgetHandler:UnitPreDamaged(unitID, unitDefID, unitTeam,
 	
 	local projectileID,attackerID
 	local attackerDefID,attackerTeam
-	if reverseCompat then 
+	if unitDamagedOrderChange then 
 		attackerID = a 
 		attackerDefID = b
 		attackerTeam = c
@@ -1492,7 +1512,7 @@ function gadgetHandler:UnitPreDamaged(unitID, unitDefID, unitTeam,
 								   a, b, c, d)
   local projectileID,attackerID
   local attackerDefID,attackerTeam
-  if reverseCompat then 
+  if unitDamagedOrderChange then 
 	attackerID = a 
     attackerDefID = b
     attackerTeam = c
@@ -1530,7 +1550,7 @@ local UnitDamaged_gadgets = {}
 function gadgetHandler:UnitDamaged(unitID, unitDefID, unitTeam,
                                    damage, paralyzer, weaponID, projectileID, 
                                    attackerID, attackerDefID, attackerTeam)
-	if reverseCompat then
+	if unitDamagedOrderChange then
 		attackerTeam = attackerDefID
 		attackerDefID = attackerID
 		attackerID = projectileID
@@ -1559,7 +1579,7 @@ function gadgetHandler:UnitDamaged(unitID, unitDefID, unitTeam,
                                    damage, paralyzer, weaponID, projectileID, 
                                    attackerID, attackerDefID, attackerTeam)
 		
-  if reverseCompat then
+  if unitDamagedOrderChange then
     attackerTeam = attackerDefID
     attackerDefID = attackerID
     attackerID = projectileID
@@ -2101,13 +2121,7 @@ end
 --]]
 
 function gadgetHandler:GotChatMsg(msg, player)
-    --local ki = self.knownGadgets[name]
-    --Spring.Echo("Check")
-    --if not IsSyncedCode() then
-	--  for i, v in pairs(self.knownGadgets) do
-	--	Spring.Echo(i .. "  " .. ((v.active and "active") or ""))
-	--  end
-	--end
+
   if (((player == 0) or (player == 255)) and Spring.IsCheatingEnabled()) then	-- ours
   --if ((player == 0) and Spring.IsCheatingEnabled()) then		-- base
     local sp = '^%s*'    -- start pattern

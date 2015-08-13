@@ -4,7 +4,6 @@ unitDef = {
   description         = [[Transport Platform]],
   acceleration        = 0.102,
   brakeRate           = 0.115,
-  buildAngle          = 16384,
   buildCostEnergy     = 220,
   buildCostMetal      = 220,
   builder             = false,
@@ -28,6 +27,7 @@ unitDef = {
     helptext_de    = [[Das Surfboard bietet sich als Wassertransportmittel und als Feuerplattform an, denn alle auf dem Surfboard transportierten Einheiten können weiter feuern.]],
     helptext_fr    = [[Le Surfboard est un navire de transport et une plateforme de tir. Les unités transportées peuvent se servir de leurs armes.]],
     helptext_pl    = [[Surfboard to platforma transportowa - jednostki, ktore przewozi, sa w stanie atakowac z pokladu.]],
+	turnatfullspeed = [[1]],
     modelradius    = [[15]],
   },
 
@@ -40,8 +40,8 @@ unitDef = {
   idleAutoHeal        = 5,
   idleTime            = 1800,
   isFirePlatform      = true,
-  maxDamage           = 1100,
-  maxVelocity         = 3,
+  maxDamage           = 1200,
+  maxVelocity         = 3.3,
   minCloakDistance    = 75,
   movementClass       = [[BOAT4]],
   noChaseCategory     = [[TERRAFORM FIXEDWING GUNSHIP HOVER SHIP SWIM SUB LAND FLOAT SINK TURRET]],
@@ -53,16 +53,16 @@ unitDef = {
   sightDistance       = 325,
   transportCapacity   = 1,
   transportSize       = 3,
-  turnRate            = 539,
+  turnRate            = 590,
 
   featureDefs         = {
 
     DEAD  = {
       description      = [[Wreckage - Surfboard]],
       blocking         = false,
-      damage           = 1100,
+      damage           = 1200,
       energy           = 0,
-      featureDead      = [[DEAD2]],
+      featureDead      = [[HEAP]],
       footprintX       = 4,
       footprintZ       = 4,
       metal            = 88,
@@ -71,24 +71,10 @@ unitDef = {
       reclaimTime      = 88,
     },
 
-    DEAD2 = {
-      description      = [[Debris - Surfboard]],
-      blocking         = false,
-      damage           = 1100,
-      energy           = 0,
-      featureDead      = [[HEAP]],
-      footprintX       = 4,
-      footprintZ       = 4,
-      metal            = 88,
-      object           = [[debris3x3a.s3o]],
-      reclaimable      = true,
-      reclaimTime      = 88,
-    },
-
     HEAP  = {
       description      = [[Debris - Surfboard]],
       blocking         = false,
-      damage           = 1100,
+      damage           = 1200,
       energy           = 0,
       footprintX       = 4,
       footprintZ       = 4,

@@ -44,7 +44,7 @@ local unitIsUnarmed = {}
 for i=1, #UnitDefs do
 	local ud = UnitDefs[i]
 	local weapons = ud.weapons
-	if not weapons or #weapons == 0 then
+	if (not weapons or #weapons == 0) and not ud.canKamikaze then
 		unitIsUnarmed[i] = true
 	end
 end
@@ -95,6 +95,10 @@ local unitIsBadAgainstFastStuff = {
 	[UnitDefNames["armmanni"].id] = true,
 	[UnitDefNames["armanni"].id] = true,
 	[UnitDefNames["corstorm"].id] = true,
+}
+
+local captureWeaponDefs = {
+	[WeaponDefNames["capturecar_captureray"].id] = true
 }
 
 for i=1, #UnitDefs do
@@ -148,5 +152,4 @@ for uid = 1, #UnitDefs do
 	end
 end
 
-return targetTable
-
+return targetTable, captureWeaponDefs

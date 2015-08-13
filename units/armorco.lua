@@ -40,6 +40,7 @@ unitDef = {
   footprintZ             = 6,
   iconType               = [[krogoth]],
   leaveTracks            = true,
+  losEmitHeight          = 100,
   mass                   = 2233,
   maxDamage              = 85800,
   maxSlope               = 37,
@@ -270,7 +271,6 @@ unitDef = {
       soundStart              = [[weapon/laser/heavy_laser3]],
       soundStartVolume        = 2,
       sweepfire               = false,
-      targetMoveError         = 0.2,
       texture1                = [[largelaserdark]],
       texture2                = [[flaredark]],
       texture3                = [[flaredark]],
@@ -298,14 +298,14 @@ unitDef = {
 	  },
 
       damage                  = {
-        default = 850,
+        default = 851,
         subs    = 42.5,
       },
 
       edgeEffectiveness       = 0.75,
       explosionGenerator      = [[custom:TESS]],
       fireStarter             = 55,
-	  flighttime              = 100,
+	  flightTime              = 10,
       impulseBoost            = 0,
       impulseFactor           = 0.8,
       interceptedByShieldType = 2,

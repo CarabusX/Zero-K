@@ -1,3 +1,10 @@
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+if not gadgetHandler:IsSyncedCode() then
+	return
+end
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 
 function gadget:GetInfo()
   return {
@@ -13,9 +20,6 @@ end
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
-if (gadgetHandler:IsSyncedCode()) then --SYNCED
---------------------------------------------------------------------------------
---------------------------------------------------------------------------------
 
 local reverseCompat = (Game.version:find('91.0') == 1)
 
@@ -29,17 +33,20 @@ local spGetAllUnits = Spring.GetAllUnits
 local spGetUnitRulesParam = Spring.GetUnitRulesParam
 local spGetUnitSeparation = Spring.GetUnitSeparation
 
-local targetTable = include("LuaRules/Configs/target_priority_defs.lua")
+local targetTable, captureWeaponDefs = include("LuaRules/Configs/target_priority_defs.lua")
 
 -- Low return number = more worthwhile target
 -- This seems to override everything, will need to reimplement emp things, badtargetcats etc...
 -- Callin occurs every 16 frames
 
+-- Values reset every slow update
 local remHealth = {}
-local remStunned = {}
+local remStunnedOrOverkill = {}
+local remVisible = {}
+
+-- Fairly unchanging values
 local remAllyTeam = {}
 local remUnitDefID = {}
-local remVisible = {}
 
 function gadget:AllowWeaponTarget(unitID, targetID, attackerWeaponNum, attackerWeaponDefID, defPriority)
 
@@ -81,12 +88,14 @@ function gadget:AllowWeaponTarget(unitID, targetID, attackerWeaponNum, attackerW
 	
 	local defPrio = targetTable[enemyUnitDef][attackerWeaponDefID] or 5
 	
-	if not remStunned[targetID] then
-		local stunnedOrInbuild = spGetUnitIsStunned(targetID) or (spGetUnitRulesParam(unitID, "disarmed") == 1)
-		remStunned[targetID] = (stunnedOrInbuild and 1) or 0
+	if not remStunnedOrOverkill[targetID] then
+		local stunnedOrInbuild = spGetUnitIsStunned(targetID) or (spGetUnitRulesParam(targetID, "disarmed") == 1)
+		local overkill = GG.OverkillPrevention_IsDoomed(targetID)
+		local disarmExpected = GG.OverkillPrevention_IsDisarmExpected(targetID)
+		remStunnedOrOverkill[targetID] = ((stunnedOrInbuild or overkill or disarmExpected) and 1) or 0
 	end
 
-	if remStunned[targetID] == 1 then
+	if remStunnedOrOverkill[targetID] == 1 then
 		defPrio = defPrio + 25
 	end
 	
@@ -94,15 +103,30 @@ function gadget:AllowWeaponTarget(unitID, targetID, attackerWeaponNum, attackerW
 	if remHealth[targetID] then
 		hpAdd = remHealth[targetID]
 	else
-		local hp, maxHP = spGetUnitHealth(targetID)
+		local armor = select(2,Spring.GetUnitArmored(unitID)) or 1		
+		local hp, maxHP, paralyze, capture, build = spGetUnitHealth(targetID)
+		hp = hp/armor
+		maxHP = maxHP/armor
+		
 		if hp and maxHP then
 			hpAdd = (hp/maxHP)*0.1 --0.0 to 0.1
 		else
 			hpAdd = 0
 		end
+		
+		if capture > 0 then
+			if captureWeaponDefs[attackerWeaponDefID] then
+				-- Really prioritize capturing partially captured units.
+				hpAdd = hpAdd - 5*capture
+			else
+				-- Deprioritize partially captured units.
+				hpAdd = hpAdd + 0.2*capture
+			end
+		end
+		
 		remHealth[targetID] = hpAdd
 	end
-
+	
 	--Note: included toned down engine priority (maybe have desired behaviour?).
 	local miscAdd = 0
 	miscAdd = defPriority*0.00000005 --toned down to be around 0.0 to 0.1 (no guarantee)
@@ -115,8 +139,6 @@ function gadget:AllowWeaponTarget(unitID, targetID, attackerWeaponNum, attackerW
 	
 	local newPriority = hpAdd + defPrio + miscAdd + distAdd
 	
-	--GG.UnitEcho(targetID, newPriority)
-	
 	return true, newPriority --bigger value have lower priority
 end
 
@@ -124,7 +146,7 @@ function gadget:GameFrame(f)
 	if f%16 == 8 then -- f%16 == 0 happens just before AllowWeaponTarget
 		remHealth = {}
 		remVisible = {}
-		remStunned = {}
+		remStunnedOrOverkill = {}
 	end
 end
 
@@ -156,9 +178,3 @@ function gadget:Initialize()
 		end
 	end
 end
-
---------------------------------------------------------------------------------
---------------------------------------------------------------------------------
-end -- UNSYNCED
---------------------------------------------------------------------------------
---------------------------------------------------------------------------------

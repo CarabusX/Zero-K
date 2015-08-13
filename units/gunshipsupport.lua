@@ -85,9 +85,13 @@ unitDef = {
       craterBoost             = 0,
       craterMult              = 0,
 
+      customparams = {
+        timeslow_damagefactor = 3,
+      },
+
       damage                  = {
-        default = 190,
-        subs    = 9.5,
+        default = 200.1,
+        subs    = 10,
       },
 
       explosionGenerator      = [[custom:disruptor_missile_hit]],

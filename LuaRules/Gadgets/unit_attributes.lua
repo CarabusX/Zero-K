@@ -1,3 +1,7 @@
+
+if not gadgetHandler:IsSyncedCode() then
+	return
+end
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
@@ -9,21 +13,16 @@ function gadget:GetInfo()
       date      = "2009-11-27", --last update 2014-2-19
       license   = "GNU GPL, v2 or later",
       layer     = -1,
-      enabled   = true, 
+      enabled   = not (Game.version:find('91.0') == 1), 
    }
 end
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
---SYNCED
-if not gadgetHandler:IsSyncedCode() then
-	return
-end
+local isNewEngine = Spring.Utilities.IsCurrentVersionNewerThan(96, 300)
 
-local isNewEngine = not ((Game.version:find('91.0') == 1) and (Game.version:find('91.0.1') == nil))
-
-local UPDATE_PERIOD = 3 -- see http://springrts.com/mantis/view.php?id=3048
+local UPDATE_PERIOD = 3
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
@@ -38,6 +37,7 @@ local spSetUnitRulesParam   = Spring.SetUnitRulesParam
 local spSetUnitBuildSpeed   = Spring.SetUnitBuildSpeed
 local spSetUnitWeaponState  = Spring.SetUnitWeaponState
 local spGetUnitWeaponState  = Spring.GetUnitWeaponState
+local spGiveOrderToUnit     = Spring.GiveOrderToUnit
 
 local spGetUnitMoveTypeData    = Spring.GetUnitMoveTypeData
 local spMoveCtrlGetTag         = Spring.MoveCtrl.GetTag
@@ -45,11 +45,15 @@ local spSetAirMoveTypeData     = Spring.MoveCtrl.SetAirMoveTypeData
 local spSetGunshipMoveTypeData = Spring.MoveCtrl.SetGunshipMoveTypeData
 local spSetGroundMoveTypeData  = Spring.MoveCtrl.SetGroundMoveTypeData
 
+local ALLY_ACCESS = {allied = true}
+local INLOS_ACCESS = {inlos = true}
+
 local getMovetype = Spring.Utilities.getMovetype
 
 local spSetUnitCOBValue = Spring.SetUnitCOBValue
 local COB_MAX_SPEED = COB.MAX_SPEED
 local WACKY_CONVERSION_FACTOR_1 = 2184.53
+local CMD_WAIT = CMD.WAIT
 
 local workingGroundMoveType = true -- not ((Spring.GetModOptions() and (Spring.GetModOptions().pathfinder == "classic") and true) or false)
 
@@ -69,18 +73,17 @@ local origUnitSpeed = {}
 local origUnitReload = {}
 local origUnitBuildSpeed = {}
 
+local currentEcon = {}
+local currentReload = {}
+local currentMovement = {}
+local currentTurn = {}
+local currentAcc = {}
+
 local unitForcedOff = {}
 local unitSlowed = {}
 local unitShieldDisabled = {}
-local unitCannotCloak = {}
 
-if not GG.attUnits then
-	GG.attUnits = {}
-end
-
-if not GG.att_reload then
-	GG.att_reload = {}
-end
+local unitReloadPaused = {}
 
 local function updateBuildSpeed(unitID, ud, speedFactor)	
 
@@ -99,6 +102,8 @@ local function updateBuildSpeed(unitID, ud, speedFactor)
 
     local state = origUnitBuildSpeed[unitDefID]
 
+	spSetUnitRulesParam(unitID, "buildSpeed", state.buildSpeed*speedFactor, INLOS_ACCESS)
+	
     spSetUnitBuildSpeed(unitID, 
         state.buildSpeed*speedFactor, -- build
         2*state.buildSpeed*speedFactor, -- repair
@@ -108,20 +113,25 @@ local function updateBuildSpeed(unitID, ud, speedFactor)
 end
 
 local function updateEconomy(unitID, ud, factor)	
-	local unitDefID = ud.id
+	spSetUnitRulesParam(unitID,"resourceGenerationFactor", factor, INLOS_ACCESS)
+end
+
+local function updatePausedReload(unitID, unitDefID, gameFrame)
+	local state = origUnitReload[unitDefID]
 	
-    if ud.metalMake ~= 0 then
-        local metalMake = ud.metalMake
-		Spring.SetUnitResourcing(unitID, "cmm", -metalMake*(1-factor))
-	elseif ud.customParams.ismex then
-		Spring.SetUnitRulesParam(unitID,"mexincomefactor", factor)
-    end
-	
-	if energyMake ~= 0 or energyUpkeep ~= 0 then
-		local energyMake = ud.energyMake
-		local energyUpkeep = ud.energyUpkeep
-		Spring.SetUnitResourcing(unitID, "cme", -energyMake*(1-factor))
-		Spring.SetUnitResourcing(unitID, "cue", -energyUpkeep*(1-factor))
+	for i = 1, state.weaponCount do
+		local w = state.weapon[i]
+		local reloadState = spGetUnitWeaponState(unitID, i , 'reloadState')
+		if reloadState then
+			local reloadTime  = spGetUnitWeaponState(unitID, i , 'reloadTime')
+			local newReload = 100000 -- set a high reload time so healthbars don't judder. NOTE: math.huge is TOO LARGE
+			if reloadState < 0 then -- unit is already reloaded, so set unit to almost reloaded
+				spSetUnitWeaponState(unitID, i, {reloadTime = newReload, reloadState = gameFrame+UPDATE_PERIOD+1})
+			else
+				local nextReload = gameFrame+(reloadState-gameFrame)*newReload/reloadTime
+				spSetUnitWeaponState(unitID, i, {reloadTime = newReload, reloadState = nextReload+UPDATE_PERIOD})
+			end
+		end
 	end
 end
 
@@ -158,15 +168,22 @@ local function updateReloadSpeed(unitID, ud, speedFactor, gameFrame)
 		local reloadState = spGetUnitWeaponState(unitID, i , 'reloadState')
 		local reloadTime  = spGetUnitWeaponState(unitID, i , 'reloadTime')
 		if speedFactor <= 0 then
-			local newReload = 100000 -- set a high reload time so healthbars don't judder. NOTE: math.huge is TOO LARGE
-			if reloadState < 0 then -- unit is already reloaded, so set unit to almost reloaded
-				spSetUnitWeaponState(unitID, i, {reloadTime = newReload, reloadState = gameFrame+UPDATE_PERIOD+1})
-			else
-				local nextReload = gameFrame+(reloadState-gameFrame)*newReload/reloadTime
-				spSetUnitWeaponState(unitID, i, {reloadTime = newReload, reloadState = nextReload+UPDATE_PERIOD})
+			if not unitReloadPaused[unitID] then
+				local newReload = 100000 -- set a high reload time so healthbars don't judder. NOTE: math.huge is TOO LARGE
+				unitReloadPaused[unitID] = unitDefID
+				if reloadState < gameFrame then -- unit is already reloaded, so set unit to almost reloaded
+					spSetUnitWeaponState(unitID, i, {reloadTime = newReload, reloadState = gameFrame+UPDATE_PERIOD+1})
+				else
+					local nextReload = gameFrame+(reloadState-gameFrame)*newReload/reloadTime
+					spSetUnitWeaponState(unitID, i, {reloadTime = newReload, reloadState = nextReload+UPDATE_PERIOD})
+				end
+				-- add UPDATE_PERIOD so that the reload time never advances past what it is now
 			end
-			-- add UPDATE_PERIOD so that the reload time never advances past what it is now
 		else
+			if unitReloadPaused[unitID] then
+				unitReloadPaused[unitID] = nil
+				spSetUnitRulesParam(unitID, "reloadPaused", -1, INLOS_ACCESS)
+			end
 			local newReload = w.reload/speedFactor
 			local nextReload = gameFrame+(reloadState-gameFrame)*newReload/reloadTime
 			if w.burstRate then
@@ -208,6 +225,21 @@ local function updateMovementSpeed(unitID, ud, speedFactor, turnAccelFactor, max
 	if speedFactor <= 0 then
 		speedFactor = 0
 		decFactor = 100000 -- a unit with 0 decRate will not deccelerate down to it's 0 maxVelocity
+		
+		-- Set the units velocity to zero if it is attached to the ground.
+		local x, y, z = Spring.GetUnitPosition(unitID)
+		if x then
+			local h = Spring.GetGroundHeight(x, z)
+			if h and h >= y then
+				Spring.SetUnitVelocity(unitID, 0,0,0)
+				
+				-- Perhaps attributes should do this:
+				--local env = Spring.UnitScript.GetScriptEnv(unitID)
+				--if env and env.script.StopMoving then
+				--	Spring.UnitScript.CallAsUnit(unitID,env.script.StopMoving, hx, hy, hz)
+				--end
+			end
+		end
 	end
 	if turnAccelFactor <= 0 then
 		turnAccelFactor = 0
@@ -237,7 +269,6 @@ local function updateMovementSpeed(unitID, ud, speedFactor, turnAccelFactor, max
 				--decRate         = state.origMaxDec      *(speedFactor > 0.01  and speedFactor or 0.01)
 			}
 			spSetGunshipMoveTypeData (unitID, attribute)
-			spSetGunshipMoveTypeData (unitID, attribute)
 		elseif state.movetype == 2 then
 			if workingGroundMoveType then
 				local accRate = state.origMaxAcc*speedFactor 
@@ -257,7 +288,6 @@ local function updateMovementSpeed(unitID, ud, speedFactor, turnAccelFactor, max
 					attribute.turnAccel = state.origTurnRate*turnAccelFactor
 				end
 				spSetGroundMoveTypeData (unitID, attribute)
-				spSetGroundMoveTypeData (unitID, attribute)
 			else
 				--Spring.Echo(state.origSpeed*speedFactor*WACKY_CONVERSION_FACTOR_1)
 				--Spring.Echo(Spring.GetUnitCOBValue(unitID, COB_MAX_SPEED))
@@ -269,14 +299,19 @@ local function updateMovementSpeed(unitID, ud, speedFactor, turnAccelFactor, max
 end
 
 local function removeUnit(unitID)
-	GG.attUnits[unitID] = nil
 	unitForcedOff[unitID] = nil
 	unitSlowed[unitID] = nil
 	unitShieldDisabled[unitID] = nil
-	unitCannotCloak[unitID] = nil 
+	unitReloadPaused[unitID] = nil
+	
+	currentEcon[unitID] = nil 
+	currentReload[unitID] = nil 
+	currentMovement[unitID] = nil 
+	currentTurn[unitID] = nil 
+	currentAcc[unitID] = nil
 end
 
-function GG.UpdateUnitAttributes(unitID, frame)
+function UpdateUnitAttributes(unitID, frame)
 	if not spValidUnitID(unitID) then
 		removeUnit(unitID)
 		return
@@ -295,7 +330,8 @@ function GG.UpdateUnitAttributes(unitID, frame)
 	-- Increased reload from CAPTURE --
 	local selfReloadSpeedChange = spGetUnitRulesParam(unitID,"selfReloadSpeedChange")
 	
-	local disarmed = spGetUnitRulesParam(unitID,"disarmed")
+	local disarmed = spGetUnitRulesParam(unitID,"disarmed") or 0
+	local morphDisable = spGetUnitRulesParam(unitID,"morphDisable") or 0
 	
 	-- Unit speed change (like sprint) --
 	local selfMoveSpeedChange = spGetUnitRulesParam(unitID, "selfMoveSpeedChange")
@@ -305,25 +341,37 @@ function GG.UpdateUnitAttributes(unitID, frame)
 	-- SLOW --
 	local slowState = spGetUnitRulesParam(unitID,"slowState")
 	
-	if selfReloadSpeedChange or selfMoveSpeedChange or slowState or selfTurnSpeedChange or disarmed or selfAccelerationChange then
+	if selfReloadSpeedChange or selfMoveSpeedChange or slowState or selfTurnSpeedChange or disarmed or morphDisable or selfAccelerationChange then
 		local slowMult   = 1-(slowState or 0)
-		local econMult  = (slowMult)*(1 - (disarmed or 0))
-		local moveMult   = (slowMult)*(selfMoveSpeedChange or 1)
-		local turnMult   = (slowMult)*(selfMoveSpeedChange or 1)*(selfTurnSpeedChange or 1)
-		local reloadMult = (slowMult)*(selfReloadSpeedChange or 1)*(1 - (disarmed or 0))
+		local econMult   = (slowMult)*(1 - disarmed)*(1 - morphDisable)
+		local moveMult   = (slowMult)*(selfMoveSpeedChange or 1)*(1 - morphDisable)
+		local turnMult   = (slowMult)*(selfMoveSpeedChange or 1)*(selfTurnSpeedChange or 1)*(1 - morphDisable)
+		local reloadMult = (slowMult)*(selfReloadSpeedChange or 1)*(1 - disarmed)*(1 - morphDisable)
 		local maxAccMult = (slowMult)*(selfMaxAccelerationChange or 1)
 
 		-- Let other gadgets and widgets get the total effect without 
 		-- duplicating the pevious calculations.
-		spSetUnitRulesParam(unitID, "totalReloadSpeedChange", reloadMult)
+		spSetUnitRulesParam(unitID, "totalReloadSpeedChange", reloadMult, INLOS_ACCESS)
+		spSetUnitRulesParam(unitID, "totalMoveSpeedChange", moveMult, INLOS_ACCESS)
 		
-		GG.att_reload[unitID] = reloadMult
 		unitSlowed[unitID] = moveMult < 1
-	
-		updateReloadSpeed(unitID, ud, reloadMult, frame)
-		updateMovementSpeed(unitID,ud, moveMult, turnMult,maxAccMult)
-		updateBuildSpeed(unitID, ud, econMult)
-		updateEconomy(unitID, ud, econMult)
+		if reloadMult ~= currentReload[unitID] then
+			updateReloadSpeed(unitID, ud, reloadMult, frame)
+			currentReload[unitID] = reloadMult
+		end
+		
+		if currentMovement[unitID] ~= moveMult or currentTurn[unitID] ~= turnMult or currentAcc[unitID] ~= maxAccMult then
+			updateMovementSpeed(unitID,ud, moveMult, turnMult,maxAccMult)
+			currentMovement[unitID] = moveMult
+			currentTurn[unitID] = turnMult
+			currentAcc[unitID] = maxAccMult
+		end
+		
+		if econMult ~= currentEcon[unitID] then
+			updateBuildSpeed(unitID, ud, econMult)
+			updateEconomy(unitID, ud, econMult)
+			currentEcon[unitID] = econMult
+		end
 		if econMult ~= 1 or moveMult ~= 1 or reloadMult ~= 1 or turnMult ~= 1 or maxAccMult ~= 1 then
 			changedAtt = true
 		end
@@ -334,7 +382,7 @@ function GG.UpdateUnitAttributes(unitID, frame)
 	local forcedOff = spGetUnitRulesParam(unitID,"forcedOff")
 	
 	if ud.shieldWeaponDef then
-		if (forcedOff and forcedOff == 1) or (disarmed and disarmed == 1) then
+		if forcedOff == 1 or disarmed == 1 or morphDisable == 1 then
 			Spring.SetUnitShieldState(unitID, -1, false)
 			unitShieldDisabled[unitID] = true
 		elseif unitShieldDisabled[unitID] then
@@ -344,7 +392,7 @@ function GG.UpdateUnitAttributes(unitID, frame)
 	end
 	
 	if ableToForceOff[udid] then
-		if (forcedOff and forcedOff == 1) or (disarmed and disarmed == 1) then
+		if forcedOff == 1 or disarmed == 1 or morphDisable == 1 then
 			changedAtt = true
 			if not unitForcedOff[unitID] then
 				local active = Spring.GetUnitStates(unitID).active
@@ -359,17 +407,10 @@ function GG.UpdateUnitAttributes(unitID, frame)
 			Spring.GiveOrderToUnit(unitID, CMD.ONOFF, { oldVal }, { })
 		end
 	end
-	
-	local cloakBlocked = (spGetUnitRulesParam(unitID,"on_fire") == 1) or (disarmed == 1)
+
+	local cloakBlocked = (spGetUnitRulesParam(unitID,"on_fire") == 1) or (disarmed == 1) or (morphDisable == 1)
 	if cloakBlocked then
-		changedAtt = true
-		if not unitCannotCloak[unitID] then
-			Spring.SetUnitCloak(unitID, false, 10000)
-			unitCannotCloak[unitID] = true
-		end
-	elseif unitCannotCloak[unitID] then
-		Spring.SetUnitCloak(unitID, false, false)
-		unitCannotCloak[unitID] = nil
+		GG.PokeDecloakUnit(unitID, 1)
 	end
 
 	-- remove the attributes if nothing is being changed
@@ -378,14 +419,20 @@ function GG.UpdateUnitAttributes(unitID, frame)
 	end
 end
 
+function gadget:Initialize()
+	GG.UpdateUnitAttributes = UpdateUnitAttributes
+end
+
 function gadget:GameFrame(f)
-	
 	if f % UPDATE_PERIOD == 1 then
-		for unitID,_ in pairs(GG.attUnits) do
-			GG.UpdateUnitAttributes(unitID, f)
+		for unitID, unitDefID in pairs(unitReloadPaused) do
+			updatePausedReload(unitID, unitDefID, f)
 		end
 	end
-	
+end
+
+function gadget:UnitDestroyed(unitID)
+	removeUnit(unitID)
 end
 
 function gadget:AllowCommand_GetWantedCommand()
@@ -404,3 +451,9 @@ function gadget:AllowCommand(unitID, unitDefID, teamID, cmdID, cmdParams, cmdOpt
 	end
 end
 
+-- All information required for load is stored in unitRulesParams.
+function gadget:Load(zip)
+	for _, unitID in ipairs(Spring.GetAllUnits()) do
+		UpdateUnitAttributes(unitID)
+	end
+end

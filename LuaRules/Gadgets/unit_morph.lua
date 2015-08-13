@@ -169,7 +169,7 @@ local spGetUnitPosition = Spring.GetUnitPosition
 local stopPenalty  = 0.667
 local morphPenalty = 1.0
 local upgradingBuildSpeed = 250
-local XpScale = 0.50
+local XpScale = 1
 
 local PRIVATE = {private = true}
 
@@ -209,9 +209,8 @@ local morphCmdDesc = {
   action = 'morph',
 }
 
---// will be replaced in Initialize()
-local RankToXp    = function() return 0 end
-local GetUnitRank = function() return 0 end
+local spGetUnitRulesParam = Spring.GetUnitRulesParam
+local GetUnitRank = function(unitID) return spGetUnitRulesParam(unitID, "rank") end
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
@@ -351,7 +350,7 @@ local function GetMorphToolTip(unitID, unitDefID, teamID, morphDef, teamTech, un
     tt = tt .. RedStr .. 'needs'
     if (morphDef.tech>teamTech) then tt = tt .. ' level: ' .. morphDef.tech end
     if (morphDef.xp>unitXP)     then tt = tt .. ' xp: '    .. string.format('%.2f',morphDef.xp) end
-    if (morphDef.rank>unitRank) then tt = tt .. ' rank: '  .. morphDef.rank .. ' (' .. string.format('%.2f',RankToXp(unitDefID,morphDef.rank)) .. 'xp)' end
+    if (morphDef.rank>unitRank) then tt = tt .. ' rank: '  .. morphDef.rank end
     if (not teamOwnsReqUnit)    then tt = tt .. ' unit: '  .. UnitDefs[morphDef.require].humanName end
   end
   return tt
@@ -460,10 +459,14 @@ local function StartMorph(unitID, unitDefID, teamID, morphDef)
 
   
   Spring.SetUnitRulesParam(unitID, "morphing", 1)
-  if not morphDef.combatMorph then 
-	Spring.SetUnitHealth(unitID, { paralyze = 1.0e9 })    --// turns mexes and mm off (paralyze the unit)
-	Spring.SetUnitResourcing(unitID,"e",0)                --// turns solars off
-	Spring.GiveOrderToUnit(unitID, CMD.ONOFF, { 0 }, { "alt" }) --// turns radars/jammers off
+
+  if not morphDef.combatMorph then
+    Spring.SetUnitRulesParam(unitID, "morphDisable", 1)
+	GG.UpdateUnitAttributes(unitID)
+	local env = Spring.UnitScript.GetScriptEnv(unitID)
+	if env and env.script.StopMoving then
+		Spring.UnitScript.CallAsUnit(unitID,env.script.StopMoving, hx, hy, hz)
+	end
   end
 
   morphUnits[unitID] = {
@@ -474,22 +477,30 @@ local function StartMorph(unitID, unitDefID, teamID, morphDef)
     teamID = teamID,
 	combatMorph = morphDef.combatMorph,
   }
-
+  
   local cmdDescID = Spring.FindUnitCmdDesc(unitID, morphDef.cmd)
   if (cmdDescID) then
     Spring.EditUnitCmdDesc(unitID, cmdDescID, {id=morphDef.stopCmd, name=RedStr.."Stop"})
   end
 
   SendToUnsynced("unit_morph_start", unitID, unitDefID, morphDef.cmd)
-  GG.StartMiscPriorityResourcing(unitID,teamID,(morphDef.metal/morphDef.time*32/30)) --is using unit_priority.lua gadget to handle morph priority. Note: use metal per second as buildspeed (like regular constructor)
+  GG.StartMiscPriorityResourcing(unitID,teamID,(morphDef.metal/morphDef.time)) --is using unit_priority.lua gadget to handle morph priority. Note: use metal per second as buildspeed (like regular constructor)
 end
 
+function gadget:UnitTaken(unitID, unitDefID, oldTeamID, newTeamID)
+	local morphData = morphUnits[unitID]
+	if not morphData then return end
+	GG.StopMiscPriorityResourcing(unitID, morphData.teamID)
+	morphData.teamID = newTeamID
+	GG.StartMiscPriorityResourcing(unitID, newTeamID, (morphData.def.metal / morphData.def.time))
+end
 
 local function StopMorph(unitID, morphData)
   GG.StopMiscPriorityResourcing(unitID,morphData.teamID) --is using unit_priority.lua gadget to handle morph priority.
   morphUnits[unitID] = nil
-  if not morphData.combatMorph then 
-    Spring.SetUnitHealth(unitID, { paralyze = -1})
+  if not morphData.combatMorph then
+    Spring.SetUnitRulesParam(unitID, "morphDisable", 0)
+	GG.UpdateUnitAttributes(unitID)
   end
   Spring.SetUnitRulesParam(unitID, "morphing", 0)
   local scale = morphData.progress * stopPenalty
@@ -514,7 +525,7 @@ end
 local function FinishMorph(unitID, morphData)
 
   local udDst = UnitDefs[morphData.def.into]
-  local ud = UnitDefs[unitID]
+  local ud = UnitDefs[Spring.GetUnitDefID(unitID)]
   local defName = udDst.name
   local unitTeam = morphData.teamID
   -- copy dominatrix stuff
@@ -597,7 +608,7 @@ local function FinishMorph(unitID, morphData)
   --// copy lineage
   --local lineage = Spring.GetUnitLineage(unitID) 
   --// copy facplop
-  local facplop = GG.HasFacplop(unitID)  
+  local facplop = Spring.GetUnitRulesParam(unitID, "facplop")  
   --//copy command queue
   local cmds = Spring.GetCommandQueue(unitID, -1)
   --// copy some state
@@ -610,6 +621,9 @@ local function FinishMorph(unitID, morphData)
   local newXp = Spring.GetUnitExperience(unitID)*XpScale 
   --//copy unit speed
   local velX,velY,velZ = Spring.GetUnitVelocity(unitID) --remember speed
+ 
+
+  Spring.SetUnitRulesParam(newUnit, "jumpReload", Spring.GetUnitRulesParam(unitID, "jumpReload") or 1)
   
   --// FIXME: - re-attach to current transport?
   --// update selection
@@ -652,7 +666,9 @@ local function FinishMorph(unitID, morphData)
   end
   
   --// transfer facplop
-  if facplop then GG.GiveFacplop(newUnit) end  
+  if facplop and (facplop == 1) then
+	Spring.SetUnitRulesParam(newUnit, "facplop", 1, {inlos = true})
+  end  
   --// transfer health
   -- old health is declared far above
   local _,newMaxHealth         = Spring.GetUnitHealth(newUnit)
@@ -662,32 +678,15 @@ local function FinishMorph(unitID, morphData)
   end
   
   local newPara = 0
-  if morphData.combatMorph then
-	newPara = paralyzeDamage*newMaxHealth/oldMaxHealth
-	local slowDamage = GG.getSlowDamage(unitID)
-	if slowDamage then
-	  GG.addSlowDamage(newUnit, slowDamage)
-	end
+  newPara = paralyzeDamage*newMaxHealth/oldMaxHealth
+  local slowDamage = GG.getSlowDamage(unitID)
+  if slowDamage then
+    GG.addSlowDamage(newUnit, slowDamage)
   end
   Spring.SetUnitHealth(newUnit, {health = newHealth, build = buildProgress, paralyze = newPara})
   
   --//transfer experience
-  local nextMorph = morphDefs[morphData.def.into]
-  if nextMorph~= nil and nextMorph.into ~= nil then nextMorph = {morphDefs[morphData.def.into]} end
-  if (nextMorph) then --//determine the lowest xp req. of all next possible morphs
-    local maxXp = math.huge
-    for _, nm in pairs(nextMorph) do
-      local rankXpInto = RankToXp(nm.into,nm.rank)
-      if (rankXpInto>0)and(rankXpInto<maxXp) then
-        maxXp=rankXpInto
-      end
-      local xpInto     = nm.xp
-      if (xpInto>0)and(xpInto<maxXp) then
-        maxXp=xpInto
-      end
-    end
-    newXp = math.min( newXp, maxXp*0.9)
-  end
+  newXp = newXp * (ud.buildTime / udDst.buildTime)
   Spring.SetUnitExperience(newUnit, newXp)
   --// transfer shield power
   if oldShieldState and Spring.GetUnitShieldState(newUnit) then
@@ -735,11 +734,13 @@ end
 local function UpdateMorph(unitID, morphData)
   if Spring.GetUnitTransporter(unitID) then return true end
   
-  local allow = GG.CheckMiscPriorityBuildStep(unitID, morphData.teamID, morphData.def.resTable.m) --use unit_priority.lua gadget to handle morph priority.
-  if allow and (Spring.UseUnitResource(unitID, morphData.def.resTable)) then
-    morphData.progress = morphData.progress + morphData.increment
+  if (morphData.progress < 1.0) then
+	  local allow = GG.CheckMiscPriorityBuildStep(unitID, morphData.teamID, morphData.def.resTable.m) --use unit_priority.lua gadget to handle morph priority.
+	  if allow and (Spring.UseUnitResource(unitID, morphData.def.resTable)) then
+		morphData.progress = morphData.progress + morphData.increment
+	  end
   end
-  if (morphData.progress >= 1.0) then
+  if (morphData.progress >= 1.0 and Spring.GetUnitRulesParam(unitID, "is_jumping") ~= 1) then
     FinishMorph(unitID, morphData)
     return false -- remove from the list, all done
   end
@@ -753,12 +754,6 @@ end
 
 
 function gadget:Initialize()
-  --// RankApi linking
-  if (GG.rankHandler) then
-    GetUnitRank = GG.rankHandler.GetUnitRank
-    RankToXp    = GG.rankHandler.RankToXp
-  end
-
   -- self linking for planetwars
   GG['morphHandler'] = {}
   GG['morphHandler'].AddExtraUnitMorph = AddExtraUnitMorph
@@ -1132,8 +1127,6 @@ function gadget:AllowCommand(unitID, unitDefID, teamID, cmdID, cmdParams, cmdOpt
 				morphUnits[unitID] = nil
 				return false
 			end
-		elseif (cmdID == CMD.ONOFF) then
-			return morphData.combatMorph
 		elseif cmdID == CMD.SELFD then
 			StopMorph(unitID, morphData)
 			morphUnits[unitID] = nil
@@ -1485,7 +1478,8 @@ local function DrawCombatMorphUnit(unitID, morphData, localTeamID)
 	--glDepthTest(false)
 end
 
-function gadget:DrawWorld()
+local function DrawWorldFunc()
+
   local morphUnits = SYNCED.morphUnits
 
   if (not snext(morphUnits)) then
@@ -1508,17 +1502,25 @@ function gadget:DrawWorld()
   CallAsTeam({ ['read'] = readTeam }, function()
     for unitID, morphData in spairs(morphUnits) do
       if (unitID and morphData)and(IsUnitVisible(unitID)) then
-		if morphData.combatMorph then
-		  DrawCombatMorphUnit(unitID, morphData,readTeam)	
-		else
+    if morphData.combatMorph then
+      DrawCombatMorphUnit(unitID, morphData,readTeam) 
+    else
           DrawMorphUnit(unitID, morphData,readTeam)
-		end
+    end
       end
     end
   end)
   glDepthTest(false)
   glBlending(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
   phase = phase + .06
+end
+
+function gadget:DrawWorld()
+  DrawWorldFunc()
+end
+
+function gadget:DrawWorldRefraction()
+  DrawWorldFunc()
 end
 
 local function split(msg,sep)

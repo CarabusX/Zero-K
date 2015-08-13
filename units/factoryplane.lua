@@ -17,7 +17,7 @@ unitDef = {
     [[armca]],
     [[fighter]],
     [[corvamp]],
-	[[bomberdive]],
+	[[corshad]],
 	[[corhurc2]],
     [[armstiletto_laser]],
     [[armcybr]],
@@ -34,6 +34,7 @@ unitDef = {
   corpse                        = [[DEAD]],
 
   customParams                  = {
+    pad_count = 1,
     landflystate   = [[0]],
     description_de = [[Produziert Flugzeuge, Baut mit 10 M/s]],
     description_pl = [[Buduje samoloty, moc 10 m/s]],
@@ -41,7 +42,7 @@ unitDef = {
 	helptext_de    = [[Das Airplane Plant ermöglicht den Bau vielfältiger Starrflügelflugzeuge, um deine Bedürfnisse zu stillen. Wähle zwischen Allzweckjägern, die sowohl leichte Attacken fliegen können, als auch als Abfangjäger fungieren, und präzisen Bombern, um spezielle Ziele zu vernichten. Es befüllt außerdem die Bomber.]],
 	helptext_pl    = [[Lotnisko pozwala na budowe samolotow i oprocz samolotu konstrukcyjnego i zwiadowczego oferuje takze dwa rodzaje mysliwcow i cztery bombowcow, kazdy wyspecjalizowany do unikalnej roli. Posiada takze jedno stanowisko uzupelniania dla bombowcow.]],
     sortName = [[4]],
-	modelradius    = [[25]],
+	modelradius    = [[50]],
 	midposoffset   = [[0 20 0]],
   },
 

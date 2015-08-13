@@ -231,7 +231,7 @@ upgrades = {
 	},
 	weaponmod_high_frequency_beam = {
 		name = "High Frequency Beam",
-		description = "Beam Laser/Slow Beam/Disruptor Beam/Particle Beam: +15% damage and range",
+		description = " +15% damage and range to Beam Laser/Slow Beam/Disruptor Beam/Light Particle Beam/Heavy Particle Beam",
 		func = function(unitDef)
 				local weapons = unitDef.weapondefs or {}
 				local permitted = {
@@ -257,7 +257,8 @@ upgrades = {
 		func = function(unitDef)
 				local weapons = unitDef.weapondefs or {}
 				for i,v in pairs(weapons) do
-					if v.customparams.idstring == "commweapon_gaussrifle" then
+					local id = v.customparams.idstring
+					if id == "commweapon_gaussrifle" or id == "commweapon_massdriver" then
 						v.range = v.range * 1.2
 						for armorname, dmg in pairs(v.damage) do
 							v.damage[armorname] = dmg * 1.1
@@ -400,7 +401,7 @@ upgrades = {
 						v.customparams.burntime = v.customparams.burntime * 1.4
 					end
 					if v.customparams.idstring == "commweapon_hpartillery_napalm" then
-						v.customparams.areadamage_preset = "module_napalmarty_long"
+						v.customparams.area_damage_duration = v.customparams.area_damage_duration * 1.4
 						v.explosiongenerator = "custom:napalm_firewalker_long"
 					end
 				end
@@ -451,9 +452,9 @@ upgrades = {
 	},
 	module_autorepair = {
 		name = "Autorepair System",
-		description = "Self-repairs 20 HP/s",
+		description = "Self-repairs 10 HP/s",
 		func = function(unitDef)
-				unitDef.autoheal = (unitDef.autoheal or 0) + 20
+				unitDef.autoheal = (unitDef.autoheal or 0) + 10
 			end,
 	},
 	module_companion_drone = {
@@ -490,6 +491,7 @@ upgrades = {
 				for i,v in pairs(weapons) do
 					local id = v.customparams.idstring
 					-- linear rather than exponential increase with stacking
+					v.reloadtime = v.reloadtime or 1
 					local previousCount = v.customparams.burstloaders or 0
 					local baseReload = v.reloadtime / (1 + 0.7*previousCount)
 					if id == "commweapon_beamlaser" or id == "commweapon_disruptor" or id == "commweapon_slowbeam" then
@@ -560,6 +562,7 @@ upgrades = {
 	},
 	module_personal_shield = {
 		name = "Personal Shield",
+		order = 5,
 		description = "Generates a small bubble shield",
 		func = function(unitDef)
 				ApplyWeapon(unitDef, "commweapon_personal_shield", 4)
@@ -576,9 +579,12 @@ upgrades = {
 	
 	module_areashield = {
 		name = "Area Shield",
-		description = "Bubble shield that protects surrounding units within 300 m",
+		order = 6,
+		description = "A bubble shield that protects surrounding units within 350 m",
 		func = function(unitDef)
-				ApplyWeapon(unitDef, "commweapon_areashield", 2)
+				--ApplyWeapon(unitDef, "commweapon_areashield", 2)
+				ReplaceWeapon(unitDef, "commweapon_personal_shield", "commweapon_areashield")
+
 				unitDef.customparams.lups_unit_fxs = unitDef.customparams.lups_unit_fxs or {}
 				table.insert(unitDef.customparams.lups_unit_fxs, "commAreaShield")
 			end,
@@ -590,7 +596,10 @@ upgrades = {
 				unitDef.mincloakdistance = math.max(150, unitDef.mincloakdistance or 0)
 				unitDef.onoffable = true
 				unitDef.radarDistanceJam = (unitDef.radarDistanceJam and unitDef.radarDistanceJam > 350 and unitDef.radarDistanceJam) or 350
-				unitDef.customparams.cloakshield_preset = "module_cloakfield"
+				unitDef.customparams.area_cloak = "1"
+				unitDef.customparams.area_cloak_upkeep = "15"
+				unitDef.customparams.area_cloak_radius = "350"
+				unitDef.customparams.area_cloak_decloak_distance = "75"
 			end,
 	},
 	module_jammer = {
@@ -648,7 +657,7 @@ upgrades = {
 				unitDef.autoheal = (unitDef.autoheal or 0) + 20
 		end,
 		useWeaponSlot = true,
-	},	
+	},
 
 	module_superspeed = {
 		name = "Marathon Motion Control",
@@ -714,25 +723,6 @@ upgrades = {
 				ReplaceWeapon(unitDef, "commweapon_beamlaser", "commweapon_hparticlebeam")
 			end,	
 	}
-}
-
-upgrades_dota = {
-	module_personal_cloak = {
-		name = "Stealth System",
-		description = "Makes the commander invisible to radar",
-		func = function(unitDef)
-				unitDef.stealth = true
-			end,
-	},
-	module_cloak_field = upgrades.module_jammer,
-	
-	module_resurrect = {
-		name = "Lazarus Nanolathe",
-		description = "Adds +7.5 metal/s build speed",
-		func = function(unitDef)
-				if unitDef.workertime then unitDef.workertime = unitDef.workertime + 7.5 end
-			end,
-	},
 }
 
 decorations = {
@@ -888,15 +878,7 @@ for name,data in pairs(upgrades) do
 		data.order = order
 	end
 end
---------------------------------------------------------------------------------
---------------------------------------------------------------------------------
-if Spring and Spring.GetModOptions and Spring.GetModOptions().zkmode == "dota" then
-	for name,data in pairs(upgrades_dota) do
-		upgrades[name] = data
-	end
-end
---------------------------------------------------------------------------------
---------------------------------------------------------------------------------
+
 local weaponsList = VFS.DirList("gamedata/modularcomms/weapons", "*.lua") or {}
 for i=1,#weaponsList do
 	local name, array = VFS.Include(weaponsList[i])

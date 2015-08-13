@@ -188,7 +188,7 @@ function script.AimFromWeapon(num)
 	return base 
 end
 
-function script.AimWeapon( num, heading, pitch )
+function script.AimWeapon(num, heading, pitch)
 	return true
 end
 
@@ -212,8 +212,11 @@ local function reload(num)
 	gun[num].loaded = true
 end
 
-function script.BlockShot(num)
-	return not gun[shot].loaded
+function script.BlockShot(num, targetID)
+	if gun[shot].loaded then
+		return GG.OverkillPrevention_CheckBlock(unitID, targetID, 200.1, 35)
+	end
+	return true
 end
 
 function script.Shot(num)

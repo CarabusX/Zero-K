@@ -51,11 +51,7 @@ local spGetTeamUnits		= Spring.GetTeamUnits
 
 local GiveClampedOrderToUnit = Spring.Utilities.GiveClampedOrderToUnit
 
-local jumpDefNames  = VFS.Include"LuaRules/Configs/jump_defs.lua"
-local jumpDefs = {}
-for name, data in pairs(jumpDefNames) do
-	jumpDefs[UnitDefNames[name].id] = data
-end
+local jumpDefs = VFS.Include"LuaRules/Configs/jump_defs.lua"
 
 local SAVE_FILE = "Gadgets/ai_cai.lua"
 
@@ -80,6 +76,12 @@ local CMD_INSERT 		= CMD.INSERT
 local CMD_REMOVE 		= CMD.REMOVE
 
 local twoPi = math.pi*2
+
+--------------------------------------------------------------------------------
+-- *** Config
+
+include "LuaRules/Configs/cai/general.lua"
+
 
 if (gadgetHandler:IsSyncedCode()) then
 
@@ -112,10 +114,6 @@ local function ModifyTable(original, modify)   -- Warning: circular table refere
 		end
 	end
 end
---------------------------------------------------------------------------------
--- *** Config
-
-include "LuaRules/Configs/cai/general.lua"
 --------------------------------------------------------------------------------
 -- *** 'Globals'
 
@@ -2590,7 +2588,7 @@ local function spotEnemyUnit(allyTeam, unitID, unitDefID,readd)
 					addValueToHeatmapInArea(enemyDefence,enemyDefenceHeatmap, ud.metalCost, x, z)
 				end
 			end
-		elseif ud.buildSpeed > 0 or ud.isFactory or (ud.energyMake > 0 or ud.energyUpkeep < 0) or ud.customParams.ismex then -- econ
+		elseif ud.buildSpeed > 0 or ud.isFactory or (ud.customParams.income_energy or ud.energyMake > 0 or ud.energyUpkeep < 0) or ud.customParams.ismex then -- econ
 			addValueToHeatmap(enemyEconomy, enemyEconomyHeatmap, ud.metalCost, aX, aZ)
 		end
 		
@@ -2637,7 +2635,7 @@ local function spotEnemyUnit(allyTeam, unitID, unitDefID,readd)
 					at.enemyForceComposition.unit.airDefence = at.enemyForceComposition.unit.airDefence + ud.metalCost
 				end
 			end
-		elseif ud.buildSpeed > 0 or ud.isFactory or (ud.energyMake > 0 or ud.energyUpkeep < 0) or ud.customParams.ismex then -- econ
+		elseif ud.buildSpeed > 0 or ud.isFactory or (ud.customParams.income_energy or ud.energyMake > 0 or ud.energyUpkeep < 0) or ud.customParams.ismex then -- econ
 			
 		end
 	end
@@ -3064,7 +3062,7 @@ local function ProcessUnitDestroyed(unitID, unitDefID, unitTeam, changeAlly)
 					controlledUnit.turret.cost = controlledUnit.turret.cost - ud.metalCost
 					controlledUnit.turret.count = controlledUnit.turret.count - 1
 					controlledUnit.turretByID[unitID] = nil
-				elseif (ud.energyMake > 0 or ud.energyUpkeep < 0 or (ud.customParams and ud.customParams.windgen)) then
+				elseif (ud.customParams.income_energy or ud.energyMake > 0 or ud.energyUpkeep < 0 or (ud.customParams and ud.customParams.windgen)) then
 					controlledUnit.econ.cost = controlledUnit.econ.cost - ud.metalCost
 					if controlledUnit.econByID[unitID].onDefenceHeatmap then
 						editDefenceHeatmap(unitTeam,unitID,buildDefs.econByDefId[unitDefID].defenceQuota,buildDefs.econByDefId[unitDefID].airDefenceQuota,buildDefs.econByDefId[unitDefID].defenceRange,-1,0)
@@ -3336,7 +3334,7 @@ local function ProcessUnitCreated(unitID, unitDefID, unitTeam, builderID, change
 					controlledUnit.turret.cost = controlledUnit.turret.cost + ud.metalCost
 					controlledUnit.turret.count = controlledUnit.turret.count + 1
 					controlledUnit.turretByID[unitID] = {index = controlledUnit.turret.count, ud = ud,x = x, y = y, z = z, cost = ud.metalCost, finished = false, air = not ud.weapons[1].onlyTargets.land }
-				elseif (ud.energyMake > 0 or ud.energyUpkeep < 0 or (ud.customParams and ud.customParams.windgen)) then
+				elseif (ud.customParams.income_energy or ud.energyMake > 0 or ud.energyUpkeep < 0 or (ud.customParams and ud.customParams.windgen)) then
 					local x,y,z = spGetUnitPosition(unitID)
 					if econByDefId and econByDefId[unitDefID] and (not built) then
 						editDefenceHeatmap(unitTeam,unitID,buildDefs.econByDefId[unitDefID].defenceQuota,buildDefs.econByDefId[unitDefID].airDefenceQuota,buildDefs.econByDefId[unitDefID].defenceRange,1,0)
@@ -3376,7 +3374,7 @@ local function ProcessUnitCreated(unitID, unitDefID, unitTeam, builderID, change
 		elseif ud.isBuilding or ud.speed == 0 then -- building
 			if ud.maxWeaponRange > 0 then 
 				units.turretByID[unitID] = true
-			elseif (ud.energyMake > 0 or ud.energyUpkeep < 0) then
+			elseif (ud.customParams.income_energy or ud.energyMake > 0 or ud.energyUpkeep < 0) then
 				units.econByID[unitID] = true
 			elseif ud.radarRadius > 0 then -- radar 
 				units.radarByID[unitID] = true
@@ -3467,7 +3465,7 @@ function gadget:UnitFinished(unitID, unitDefID, unitTeam)
 			elseif ud.isBuilding or ud.speed == 0 then -- building
 				if ud.maxWeaponRange > 0 then -- turret
 					controlledUnit.turretByID[unitID].finished = true
-				elseif (ud.energyMake > 0 or ud.energyUpkeep < 0 or (ud.customParams and ud.customParams.windgen)) then
+				elseif (ud.customParams.income_energy or ud.energyMake > 0 or ud.energyUpkeep < 0 or (ud.customParams and ud.customParams.windgen)) then
 					controlledUnit.econByID[unitID].finished = true
 				elseif ud.radarRadius > 0 then -- radar
 					controlledUnit.radarByID[unitID].finished = true
@@ -3851,8 +3849,22 @@ end
 
 local function setAllyteamStartLocations(allyTeam)
 	if Game.startPosType == 2 then -- Apparently this is 'choose ingame'
+		
 		local x1, z1, x2, z2 = Spring.GetAllyTeamStartBox(allyTeam)
 		
+		local startboxString = Spring.GetModOptions().startboxes
+		if startboxString then -- new boxes
+			local startboxConfig = loadstring(startboxString)()
+			local teamList = Spring.GetTeamList(allyTeam)
+			if (not teamList) or (#teamList == 0) then return end
+			local boxID = Spring.GetTeamRulesParam(teamList[1], "start_box_id")
+			local box = boxID and startboxConfig[boxID] or {0,0,1,1}
+			x1 = box[1] * Game.mapSizeX
+			z1 = box[2] * Game.mapSizeZ
+			x2 = box[3] * Game.mapSizeX
+			z2 = box[4] * Game.mapSizeZ
+		end
+
 		local at = allyTeamData[allyTeam]
 		local listOfAis = at.listOfAis
 		
@@ -4143,25 +4155,13 @@ else
 --------------------------------------------------------------------------------
 -- UNSYNCED
 --------------------------------------------------------------------------------
--- need this because SYNCED.tables are merely proxies, not real tables
-local function MakeRealTable(proxy)
-	if not proxy then return end
-	local proxyLocal = proxy
-	local ret = {}
-	for i,v in spairs(proxyLocal) do
-		if type(v) == "table" then
-			ret[i] = MakeRealTable(v)
-		else
-			ret[i] = v
-		end
-	end
-	return ret
-end
+local MakeRealTable = Spring.Utilities.MakeRealTable
 
 local heatmapPosition
 
 -- draw scoutmap
 -- FIXME: could use some big time optimizations
+--[[
 function gadget:DrawWorldPreUnit()
 	if Spring.IsCheatingEnabled() then
 		if SYNCED and SYNCED.debugData and SYNCED.debugData.drawScoutmap then
@@ -4183,13 +4183,29 @@ function gadget:DrawWorldPreUnit()
 		end
 	end
 end
+--]]
 
 function gadget:Initialize()
+	local usingAI = false
+	for _,team in ipairs(spGetTeamList()) do
+		--local _,_,_,isAI,side = spGetTeamInfo(team)
+		if aiConfigByName[spGetTeamLuaAI(team)] then
+			local _,_,_,_,_,_,CustomTeamOptions = spGetTeamInfo(team)
+			if (not CustomTeamOptions) or (not CustomTeamOptions["aioverride"]) then -- what is this for?
+				usingAI = true
+			end
+		end
+	end
+	if not usingAI then
+		gadgetHandler:RemoveGadget()
+		return 
+	end
+	
 	if Spring.GetGameRulesParam("CAI_disabled") == 1 then
 		gadgetHandler:RemoveGadget() 
 		return
 	end
-	heatmapPosition = MakeRealTable(SYNCED.heatmapPosition)
+	--heatmapPosition = MakeRealTable(SYNCED.heatmapPosition)
 end
 
 function gadget:Save(zip)

@@ -9,6 +9,13 @@
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
+if (not gadgetHandler:IsSyncedCode()) then
+	return
+end
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+
 function gadget:GetInfo()
   return {
     name      = "UnitPriority",
@@ -16,8 +23,10 @@ function gadget:GetInfo()
     author    = "Licho",
     date      = "19.4.2009", --24.2.2013
     license   = "GNU GPL, v2 or later",
-    layer     = -2, --must start before unit_morph.lua gadget to register GG.AddMiscPriority() first
-    enabled   = true
+	-- Must start before unit_morph.lua gadget to register GG.AddMiscPriority() first.
+	-- Must be before mex_overdrive
+    layer     = -5,
+    enabled   = not (Game.version:find('91.0') == 1)
   }
 end
 
@@ -64,21 +73,29 @@ local UnitPriority = {}  --  UnitPriority[unitID] = 0,1,2     priority of the un
 local UnitMiscPriority = {}  --  UnitMiscPriority[unitID] = 0,1,2     priority of the unit
 local TeamPriorityUnits = {}  -- TeamPriorityUnits[TeamID][UnitID] = 0,2    which units are low/high priority builders
 local teamMiscPriorityUnits = {} -- teamMiscPriorityUnits[TeamID][UnitID] = 0,2    which units are low/high priority builders
-local TeamScale = {}  -- TeamScale[TeamID]= {0.1, 0.4}   how much to scale down production of lnormal and low prirotity units
+local TeamScale = {}  -- TeamScale[TeamID] = {0, 0.4, 1} how much to scale resourcing at different incomes
+local TeamScaleEnergy = {} -- TeamScaleEnergy[TeamID] = {0, 0.4, 1} how much to scale energy only resourcing
 local TeamMetalReserved = {} -- how much metal is reserved for high priority in each team
 local TeamEnergyReserved = {} -- ditto for energy
 local LastUnitFromFactory = {} -- LastUnitFromFactory[FactoryUnitID] = lastUnitID
+local UnitOnlyEnergy = {} -- UnitOnlyEnergy[unitID] = true if the unit does not try to drain metal
+local MiscUnitOnlyEnergy = {} -- MiscUnitOnlyEnergy[unitID] for misc drain
+
+local checkOnlyEnergy = false -- becomes true onces every second to check for repairers
+
+-- Derandomization of resource allocation. Remembers the portion of resources allocated to the unit and gives access
+-- when they have a full chunk.
+local UnitConPortion = {}
+local UnitMiscPortion = {}
 
 local miscMetalDrain = {} -- metal drain for custom unit added thru GG. function
 local miscTeamPriorityUnits = {} --unit  that need priority handling
-local miscTeamDrain = {} -- miscTeamDrain[TeamID] = drain	  -- how much is actually draining
 local miscTeamPull = {} -- miscTeamPull[TeamID] = pull      -- how much is pulling
 
 do
 	local teams = Spring.GetTeamList()
 	for i=1,#teams do
 		local teamID = teams[i]
-		miscTeamDrain[teamID] = 0
 		miscTeamPull[teamID] = 0
 	end
 end
@@ -88,7 +105,10 @@ local priorityTypes = {
 	[CMD_MISC_PRIORITY] = {id = CMD_MISC_PRIORITY, param = "miscpriority", unitTable = UnitMiscPriority},
 }
 
+local ALLY_ACCESS = {allied = true}
+
 local reportedError = false
+local debugTeam = false
 
 --------------------------------------------------------------------------------
 --  COMMON
@@ -102,13 +122,7 @@ end
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
-
-if (gadgetHandler:IsSyncedCode()) then
---------------------------------------------------------------------------------
---  SYNCED
---------------------------------------------------------------------------------
-
-local random = math.random
+local max = math.max
 
 local spGetTeamList       = Spring.GetTeamList
 local spGetTeamResources  = Spring.GetTeamResources
@@ -120,14 +134,21 @@ local spEditUnitCmdDesc   = Spring.EditUnitCmdDesc
 local spInsertUnitCmdDesc = Spring.InsertUnitCmdDesc
 local spRemoveUnitCmdDesc = Spring.RemoveUnitCmdDesc
 local spSetUnitRulesParam = Spring.SetUnitRulesParam
+local spGetUnitRulesParam = Spring.GetUnitRulesParam
+local spSetTeamRulesParam = Spring.SetTeamRulesParam
+local spGetUnitIsStunned  = Spring.GetUnitIsStunned
+local spGetTeamRulesParam = Spring.GetTeamRulesParam
 
+local alliedTable = {allied = true}
 
 local function SetMetalReserved(teamID, value)
 	TeamMetalReserved[teamID] = value or 0
+	Spring.SetTeamRulesParam(teamID, "metalReserve", value or 0, alliedTable)
 end
 
 local function SetEnergyReserved(teamID, value)
 	TeamEnergyReserved[teamID] = value or 0
+	Spring.SetTeamRulesParam(teamID, "energyReserve", value or 0, alliedTable)
 end
 
 
@@ -136,14 +157,14 @@ local function SetPriorityState(unitID, state, prioID)
 	if (cmdDescID) then
 		CommandDesc.params[1] = state
 		spEditUnitCmdDesc(unitID, cmdDescID, { params = CommandDesc.params, tooltip = TooltipsB[prioID] .. TooltipsA[1 + state%StateCount]})
-		spSetUnitRulesParam(unitID, priorityTypes[prioID].param, state)
+		spSetUnitRulesParam(unitID, priorityTypes[prioID].param, state, ALLY_ACCESS)
 	end
 	priorityTypes[prioID].unitTable[unitID] = state	
 end 
 
 function PriorityCommand(unitID, cmdID, cmdParams, cmdOptions)
-	local state = cmdParams[1]
-	if (cmdOptions.right) then 
+	local state = cmdParams[1] or 1
+	if cmdOptions and (cmdOptions.right) then 
 		state = state - 2
 	end
 	state = state % StateCount
@@ -177,7 +198,6 @@ function gadget:AllowCommand(unitID, unitDefID, teamID,
 	return true  -- command was not used
 end
 
-
 function gadget:CommandFallback(unitID, unitDefID, teamID,
                                 cmdID, cmdParams, cmdOptions)
   if (cmdID ~= CMD_PRIORITY) then
@@ -187,216 +207,345 @@ function gadget:CommandFallback(unitID, unitDefID, teamID,
   return true, true  -- command was used, remove it
 end
 
-local function AllowMiscBuildStep(unitID,teamID)
+local function AllowMiscBuildStep(unitID,teamID,onlyEnergy)
 
-	if (UnitMiscPriority[unitID] == 0) then -- priority none/low
-		if (teamMiscPriorityUnits[teamID] == nil) then 
-			teamMiscPriorityUnits[teamID] = {} 
-		end
-		teamMiscPriorityUnits[teamID][unitID] = 0
-		local scale = TeamScale[teamID]
-		if scale ~= nil then 
-			if random() < scale[2] then  --if scale[2] is less than 1 then it has less chance of success. scale[2] is a ratio between available-resource and desired-spending.  scale[2] is less than 1 when desired-spending is bigger than available-resources.
-				return true
-			else 
-				return false
-			end		
-		end
-		return true
+	local conAmount = UnitMiscPortion[unitID] or math.random()
+
+	if (teamMiscPriorityUnits[teamID] == nil) then 
+		teamMiscPriorityUnits[teamID] = {} 
 	end
-
-	if (UnitMiscPriority[unitID] == 2) then  -- priority high
-		if (teamMiscPriorityUnits[teamID] == nil) then 
-			teamMiscPriorityUnits[teamID] = {} 
-		end
-		teamMiscPriorityUnits[teamID][unitID] = 2
-		return true
-	end 
 	
-	local scale = TeamScale[teamID]
-	if scale ~= nil then 
-		if random() < scale[1] then
+	local scale
+	if MiscUnitOnlyEnergy[unitID] then
+		scale = TeamScaleEnergy[teamID]
+	else
+		scale = TeamScale[teamID]
+	end
+	
+	if checkOnlyEnergy then
+		MiscUnitOnlyEnergy[unitID] = onlyEnergy
+	end
+	
+	local priorityLevel = (UnitMiscPriority[unitID] or 1) + 1
+	
+	teamMiscPriorityUnits[teamID][unitID] = priorityLevel
+	if scale and scale[priorityLevel] then 
+		conAmount = conAmount + scale[priorityLevel]
+		if conAmount >= 1 then  
+			UnitMiscPortion[unitID] = conAmount - 1
 			return true
 		else 
+			UnitMiscPortion[unitID] = conAmount
 			return false
-		end
+		end	
 	end 
 	
 	return true
 end
 
-function GG.CheckMiscPriorityBuildStep(unitID, teamID, toSpend)
-	if AllowMiscBuildStep(unitID,teamID) then
-		miscTeamDrain[teamID] = miscTeamDrain[teamID] + toSpend
-		return true
-	else
-		return false
-	end
+function CheckMiscPriorityBuildStep(unitID, teamID, toSpend)
+	return AllowMiscBuildStep(unitID,teamID)
 end
 
-
-
 function gadget:AllowUnitBuildStep(builderID, teamID, unitID, unitDefID, step) 
-	if (step<0) then
-		--// Reclaiming isn't prioritized
+	if (step<=0) then
+		--// Reclaiming and null buildpower (waited cons) aren't prioritized
 		return true
 	end
-
-	if (UnitPriority[unitID] == 0 or (UnitPriority[builderID] == 0 and (UnitPriority[unitID] or 1) == 1 )) then -- priority none/low
-		if (TeamPriorityUnits[teamID] == nil) then 
-			TeamPriorityUnits[teamID] = {} 
-		end
-		TeamPriorityUnits[teamID][builderID] = 0
-		local scale = TeamScale[teamID]
-		if scale ~= nil then 
-			if random() < scale[2] then  --if scale[2] is less than 1 then it has less chance of success. scale[2] is a ratio between available-resource and desired-spending.  scale[2] is less than 1 when desired-spending is bigger than available-resources.
-				return true
-			else 
-				return false
-			end		
-		end
-		return true
-	end
-
-	if (UnitPriority[unitID] == 2 or (UnitPriority[builderID] == 2 and (UnitPriority[unitID] or 1) == 1)) then  -- priority high
-		if (TeamPriorityUnits[teamID] == nil) then 
-			TeamPriorityUnits[teamID] = {} 
-		end
-		TeamPriorityUnits[teamID][builderID] = 2
-		return true
-	end 
 	
-	local scale = TeamScale[teamID]
-	if scale ~= nil then 
-		if random() < scale[1] then
+	local conAmount = UnitConPortion[builderID] or math.random()
+	if (TeamPriorityUnits[teamID] == nil) then 
+		TeamPriorityUnits[teamID] = {} 
+	end
+	
+	local scale
+	if UnitOnlyEnergy[builderID] then
+		scale = TeamScaleEnergy[teamID]
+	else
+		scale = TeamScale[teamID]
+	end
+	
+	if checkOnlyEnergy then
+		local _,_,inBuild = spGetUnitIsStunned(unitID)
+		if inBuild then
+			UnitOnlyEnergy[builderID] = false
+		else
+			UnitOnlyEnergy[builderID] = (spGetUnitRulesParam(unitID, "repairRate") or 1)
+		end
+	end
+	
+	local priorityLevel 
+	if (UnitPriority[unitID] == 0 or (UnitPriority[builderID] == 0 and (UnitPriority[unitID] or 1) == 1 )) then
+		priorityLevel = 1
+	elseif (UnitPriority[unitID] == 2 or (UnitPriority[builderID] == 2 and (UnitPriority[unitID] or 1) == 1))  then
+		priorityLevel = 3
+	else
+		priorityLevel = 2
+	end
+	
+	TeamPriorityUnits[teamID][builderID] = priorityLevel
+	if scale and scale[priorityLevel] then 
+		-- scale is a ratio between available-resource and desired-spending.
+		conAmount = conAmount + scale[priorityLevel]
+		if conAmount >= 1 then  
+			UnitConPortion[builderID] = conAmount - 1
 			return true
 		else 
+			UnitConPortion[builderID] = conAmount
 			return false
-		end
-	end 
-	
-	
+		end		
+	end
 	return true
 end
 
 function gadget:GameFrame(n)
-	if n % 32 == 1 then 
-		TeamScale = {}
+
+	if n % TEAM_SLOWUPDATE_RATE == 1 then 
+		local prioUnits, miscPrioUnits
+		
+		local debugMode
 		local teams = spGetTeamList()
 		for i=1,#teams do
+			
+			debugMode = debugTeam and debugTeam[i]
+			
 			local teamID = teams[i]
 			prioUnits = TeamPriorityUnits[teamID] or {}
-			local prioSpending = 0
-			local lowPrioSpending = 0
+			miscPrioUnits = teamMiscPriorityUnits[teamID] or {}
+			
+			local spending = {0,0,0}
+			local energySpending = {0,0,0}
+			
+			local realEnergyOnlyPull = 0
+			local scaleEnergy = TeamScaleEnergy[teamID]
+			
+			if debugMode then
+				Spring.Echo("====== Frame " .. n .. " ======")
+				Spring.Echo("team " .. i .. " Initial energy only scale:")
+				if scaleEnergy then
+					Spring.Echo("High: " .. (scaleEnergy[3] or "nil"))
+					Spring.Echo("Med: " .. (scaleEnergy[2] or "nil"))
+					Spring.Echo("Low: " .. (scaleEnergy[1] or "nil"))
+				end
+			end
+			
 			for unitID, pri in pairs(prioUnits) do  --add construction priority spending
 				local unitDefID = spGetUnitDefID(unitID)
 				if unitDefID ~= nil then
-					if pri == 2 then 
-						prioSpending = prioSpending + UnitDefs[unitDefID].buildSpeed
-					else 
-						lowPrioSpending = lowPrioSpending + UnitDefs[unitDefID].buildSpeed
-					end 
+					if UnitOnlyEnergy[unitID] then
+						local buildSpeed = spGetUnitRulesParam(unitID, "buildSpeed") or UnitDefs[unitDefID].buildSpeed
+						energySpending[pri] = energySpending[pri] + buildSpeed*UnitOnlyEnergy[unitID]
+						if scaleEnergy and scaleEnergy[pri] then
+							realEnergyOnlyPull = realEnergyOnlyPull + buildSpeed*UnitOnlyEnergy[unitID]*scaleEnergy[pri]
+							
+							if debugMode then
+								GG.UnitEcho(unitID, "Energy Priority: " ..  pri ..
+									", BP: " .. buildSpeed .. 
+									", Pull: " .. buildSpeed*UnitOnlyEnergy[unitID]*scaleEnergy[pri]
+								)
+							end
+						end
+					else
+						local buildSpeed = spGetUnitRulesParam(unitID, "buildSpeed") or UnitDefs[unitDefID].buildSpeed
+						spending[pri] = spending[pri] + buildSpeed
+						
+						if debugMode then
+							GG.UnitEcho(unitID, "Priority: " .. pri ..
+								", BP: " .. buildSpeed
+							)
+						end
+					end
 				end 
 			end
-			for unitID, _ in pairs(miscMetalDrain) do --add misc priority spending
+			
+			for unitID, drain in pairs(miscMetalDrain) do --add misc priority spending
 				local unitDefID = spGetUnitDefID(unitID)
-				local pri = teamMiscPriorityUnits[teamID] and teamMiscPriorityUnits[teamID][unitID]
+				local pri = miscPrioUnits[unitID]
 				if unitDefID ~= nil and pri then
-					if pri == 2 then 
-						prioSpending = prioSpending + miscMetalDrain[unitID]
-					else 
-						lowPrioSpending = lowPrioSpending + miscMetalDrain[unitID]
-					end 
+					if MiscUnitOnlyEnergy[unitID] then
+						energySpending[pri] = energySpending[pri] + drain
+						if scaleEnergy and scaleEnergy[pri] then
+							realEnergyOnlyPull = realEnergyOnlyPull + drain*scaleEnergy[pri]
+							
+							if debugMode then
+								GG.UnitEcho(unitID, "Misc Energy Priority: " ..  pri ..
+									", BP: " .. drain .. 
+									", Pull: " .. realEnergyOnlyPull + drain*scaleEnergy[pri]
+								)
+							end
+						end
+					else
+						spending[pri] = spending[pri] + drain
+						if debugMode then
+							GG.UnitEcho(unitID, "Misc Priority: " .. pri ..
+								", BP: " .. drain
+							)
+						end
+					end
 				end 
 			end 
 			
 			--SendToUnsynced("PriorityStats", teamID,  prioSpending, lowPrioSpending, n)   
 
-			local level, _, pull, income, expense, _, _, recieved = spGetTeamResources(teamID, "metal")
-			local elevel, _, epull, eincome, eexpense, _, _, erecieved = spGetTeamResources(teamID, "energy")
+			local level, _, fakeMetalPull, income, expense, _, _, recieved = spGetTeamResources(teamID, "metal", true)
+			local elevel, _, fakeEnergyPull, eincome, eexpense, _, _, erecieved = spGetTeamResources(teamID, "energy", true)
+			
+			-- Take away the constant income which was gained this frame (innate, reclaim)
+			-- This is to ensure that level + total income is exactly what will be gained in the next second (if nothing is spent).
+			local lumpIncome = (spGetTeamRulesParam(teamID, "OD_metalBase") or 0) + 
+				(spGetTeamRulesParam(teamID, "OD_metalOverdrive") or 0) + (spGetTeamRulesParam(teamID, "OD_metalMisc") or 0)
+			level = level - (income - lumpIncome)/30
 			
 			-- Make sure the misc resoucing is constantly pulling the same value regardless of whether resources are spent
-			pull = pull + miscTeamPull[teamID] - miscTeamDrain[teamID]
-			epull = epull + miscTeamPull[teamID] - miscTeamDrain[teamID]
+			-- If AllowUnitBuildStep returns false the constructor does not add the attempt to pull. This makes pull incorrect.
+			-- The following calculations get the useful type of pull.
+			local metalPull = spending[1] + spending[2] + spending[3]
+			local energyPull = fakeEnergyPull + metalPull - fakeMetalPull + energySpending[1] + energySpending[2] + energySpending[3] - realEnergyOnlyPull
+
+			spSetTeamRulesParam(teamID, "extraMetalPull", metalPull - fakeMetalPull, ALLY_ACCESS)
+			spSetTeamRulesParam(teamID, "extraEnergyPull", energyPull - fakeEnergyPull, ALLY_ACCESS)
 			
-			--if i == 1 then
-			--	Spring.Echo("*Next Frame*")
-			--	Spring.Echo(miscTeamDrain[teamID])
-			--	Spring.Echo(miscTeamPull[teamID])
-			--	Spring.Echo(pull)
-			--end
-			
-			local levelWithInc = (income + recieved + level)
-			local elevelWithInc = (eincome + erecieved + elevel)
-			
-			if (TeamMetalReserved[teamID] and levelWithInc < TeamMetalReserved[teamID]) or (TeamEnergyReserved [teamID] and elevelWithInc < TeamEnergyReserved[teamID]) then 
-				-- below reserved level, low and normal no spending
-				TeamScale[teamID] = {0,0}
-			elseif (TeamMetalReserved[teamID] and TeamMetalReserved[teamID] > 0 and level <= TeamMetalReserved[teamID] + pull) or 
-					(TeamEnergyReserved[teamID] and TeamEnergyReserved[teamID] > 0 and elevel <= TeamEnergyReserved[teamID] + epull) then -- approach reserved level, less low and normal spending
-                    
-                -- both these values are positive and at least one is less than 1
-				local mRatio = (level - (TeamMetalReserved[teamID] or 0))/pull
-				local eRatio = (elevel - (TeamEnergyReserved[teamID] or 0))/epull
-				  
-				local spare
-				if mRatio < eRatio then 
-					spare = levelWithInc - (TeamMetalReserved[teamID] or 0) - prioSpending
-				else
-					spare = elevelWithInc - (TeamEnergyReserved[teamID] or 0) - prioSpending
+			if debugMode then
+				Spring.Echo("team " .. i .. " Pull:")
+				if scaleEnergy then
+					Spring.Echo("High: " .. (spending[3] or "nil"))
+					Spring.Echo("Med: " .. (spending[2] or "nil"))
+					Spring.Echo("Low: " .. (spending[1] or "nil"))
 				end
-			
-				local normalSpending = pull - lowPrioSpending - prioSpending
-				--Spring.Echo(spare)
-				if spare > 0 then
-					if normalSpending <= 0 then
-						if lowPrioSpending ~= 0 then
-							TeamScale[teamID] = {0,spare/lowPrioSpending} --no normal spending, but mixed chance for low priority spending
-						else
-							TeamScale[teamID] = {0,0} --no normal spending, and no low priority spending, only hi-priority spending
-						end
-					elseif spare > normalSpending then
-						spare = spare - normalSpending
-						if spare > 0 and lowPrioSpending ~= 0 then
-							TeamScale[teamID] = {1,spare/lowPrioSpending} --full normal spending, and mixed chance low-priority spending
-						else
-							TeamScale[teamID] = {1,0} --full normal spending, but no low-priority spending
-						end
-					elseif spare > 0 then
-						TeamScale[teamID] = {spare/normalSpending,0} --mixed chance normal spending, and no low-priority spending
-					end
-				else
-					TeamScale[teamID] = {0,0} --no  normal spending, no low-Priority spending
-				end
-			elseif (prioSpending > 0 or lowPrioSpending > 0) then --normal situation, or no reserve
-				
-				local normalSpending = pull - lowPrioSpending
-				
-				if pull > expense and level < expense and prioSpending < pull then 
-					TeamScale[teamID] = {
-						(income + recieved - prioSpending) / (pull - prioSpending - lowPrioSpending),  -- m stall  scale . spareNormal/normal-priority-spending
-						(income + recieved - normalSpending) / (lowPrioSpending)  -- m stall low scale . spareLow/low-priority-spending
-					}
-					--Spring.Echo ("m_stall" .. TeamScale[teamID])
-				elseif epull > eexpense and elevel < eexpense and prioSpending < epull then 
-					TeamScale[teamID] = {				
-						(eincome + erecieved - prioSpending) / (epull - prioSpending - lowPrioSpending),  -- e stall  scale
-						(eincome + erecieved - normalSpending) / (lowPrioSpending)  -- e stall low scale
-					}
-				end 
 			end
 			
-			miscTeamDrain[teamID] = 0
-			--SendToUnsynced("ReserveState", teamID, TeamMetalReserved[teamID] or 0, TeamEnergyReserved[teamID] or 0) 
+			if debugMode then
+				Spring.Echo("team " .. i .. " Energy Only Pull:")
+				if scaleEnergy then
+					Spring.Echo("High: " .. (energySpending[3] or "nil"))
+					Spring.Echo("Med: " .. (energySpending[2] or "nil"))
+					Spring.Echo("Low: " .. (energySpending[1] or "nil"))
+				end
+			end
+			
+			if debugMode then
+				Spring.Echo("team " .. i .. " old resource levels:")
+				if scaleEnergy then
+					Spring.Echo("nextMetalLevel: " .. (level or "nil"))
+					Spring.Echo("nextEnergyLevel: " .. (elevel or "nil"))
+				end
+			end
+			
+			-- How much of each resource there is to spend in the next second.
+			local nextMetalLevel = (income + recieved + level)
+			local nextEnergyLevel = (eincome + erecieved + elevel)
+			
+			if debugMode then
+				Spring.Echo("team " .. i .. " new resource levels:")
+				if scaleEnergy then
+					Spring.Echo("nextMetalLevel: " .. (nextMetalLevel or "nil"))
+					Spring.Echo("nextEnergyLevel: " .. (nextEnergyLevel or "nil"))
+				end
+			end
+			
+			TeamScale[teamID] = {}
+			TeamScaleEnergy[teamID] = {}
+			
+			for pri = 3, 1, -1 do
+				local metalDrain = spending[pri]
+				local energyDrain = spending[pri] + energySpending[pri]
+				--if i == 1 then
+				--	Spring.Echo(pri .. " energyDrain " .. energyDrain)
+				--	Spring.Echo(pri .. " nextEnergyLevel " .. nextEnergyLevel)
+				--end
+				
+				if metalDrain > 0 and energyDrain > 0 and (nextMetalLevel <= metalDrain or nextEnergyLevel <= energyDrain) then
+					-- both these values are positive and at least one is less than 1
+					local mRatio = max(0,nextMetalLevel)/metalDrain
+					local eRatio = max(0,nextEnergyLevel)/energyDrain
+				
+					local spare
+					if mRatio < eRatio then 
+						-- mRatio is lower so we are stalling metal harder.
+						-- Set construction scale limited by metal.
+						TeamScale[teamID][pri] = mRatio
+						
+						nextEnergyLevel = nextEnergyLevel - nextMetalLevel
+						nextMetalLevel = 0
+						
+						-- Use leftover energy for energy-only tasks.
+						energyDrain = energySpending[pri]
+						if energyDrain > 0 and nextEnergyLevel <= energyDrain then
+							eRatio = nextEnergyLevel/energyDrain
+							TeamScaleEnergy[teamID][pri] = eRatio
+							nextEnergyLevel = 0
+						else
+							TeamScaleEnergy[teamID][pri] = 1
+							nextEnergyLevel = nextEnergyLevel - energyDrain
+						end
+					else
+						-- eRatio is lower so we are stalling energy harder.
+						-- Set scale for build and repair equally and limit by energy.
+						TeamScale[teamID][pri] = eRatio
+						TeamScaleEnergy[teamID][pri] = eRatio
+						
+						nextMetalLevel = nextMetalLevel - nextEnergyLevel
+						nextEnergyLevel = 0
+					end
+				elseif energyDrain > 0 and nextEnergyLevel <= energyDrain then
+					local eRatio = max(0,nextEnergyLevel)/energyDrain
+					-- Set scale for build and repair equally and limit by energy.
+					TeamScale[teamID][pri] = eRatio
+					TeamScaleEnergy[teamID][pri] = eRatio
+					
+					nextMetalLevel = nextMetalLevel - nextEnergyLevel
+					nextEnergyLevel = 0
+				else
+					TeamScale[teamID][pri] = 1
+					TeamScaleEnergy[teamID][pri] = 1
+					
+					nextMetalLevel = nextMetalLevel - metalDrain
+					nextEnergyLevel = nextEnergyLevel - energyDrain
+				end
+			
+				if pri == 3 then
+					nextMetalLevel = nextMetalLevel - (TeamMetalReserved[teamID] or 0)
+					nextEnergyLevel = nextEnergyLevel - (TeamEnergyReserved[teamID] or 0)
+				end
+			end
+			
+			if debugMode then
+				Spring.Echo("team " .. i .. " Scale:")
+				if scaleEnergy then
+					Spring.Echo("High: " .. (TeamScale[teamID][3] or "nil"))
+					Spring.Echo("Med: " .. (TeamScale[teamID][2] or "nil"))
+					Spring.Echo("Low: " .. (TeamScale[teamID][1] or "nil"))
+				end
+			end
+			
+			if debugMode then
+				Spring.Echo("team " .. i .. " Energy Only Scale:")
+				if scaleEnergy then
+					Spring.Echo("High: " .. (TeamScaleEnergy[teamID][3] or "nil"))
+					Spring.Echo("Med: " .. (TeamScaleEnergy[teamID][2] or "nil"))
+					Spring.Echo("Low: " .. (TeamScaleEnergy[teamID][1] or "nil"))
+				end
+			end
+			
 		end
+		
+		
 		teamMiscPriorityUnits = {} --reset priority list
-		TeamPriorityUnits = {} --reset builder priority list (will be checked every n%32==15 th frame)
-		--SendToUnsynced("PriorityStats", nil,  0, 0, n)   
+		TeamPriorityUnits = {} --reset builder priority list (will be checked every n%32==15 th frame) 
+		
+		checkOnlyEnergy = false
+	end
+	
+	if n % TEAM_SLOWUPDATE_RATE == 0 then
+		checkOnlyEnergy = true
 	end
 end
 
 --------------------------------------------------------------------------------
-function GG.AddMiscPriorityUnit(unitID,teamID) --remotely add a priority command.
+--------------------------------------------------------------------------------
+-- Misc priority unit handling
+
+function AddMiscPriorityUnit(unitID,teamID) --remotely add a priority command.
 	if not UnitMiscPriority[unitID] then
 		local unitDefID = Spring.GetUnitDefID(unitID)
 		local ud = UnitDefs[unitDefID]
@@ -405,15 +554,15 @@ function GG.AddMiscPriorityUnit(unitID,teamID) --remotely add a priority command
 	end
 end
 
-function GG.StartMiscPriorityResourcing(unitID,teamID,metalDrain) --remotely add a priority command.
+function StartMiscPriorityResourcing(unitID,teamID,metalDrain) --remotely add a priority command.
 	if not UnitMiscPriority[unitID] then
-		GG.AddMiscPriorityUnit(unitID,teamID)
+		AddMiscPriorityUnit(unitID,teamID)
 	end
 	miscTeamPull[teamID] = miscTeamPull[teamID] + metalDrain
 	miscMetalDrain[unitID] = metalDrain
 end
 
-function GG.StopMiscPriorityResourcing(unitID,teamID) --remotely remove a forced priority command.
+function StopMiscPriorityResourcing(unitID,teamID) --remotely remove a forced priority command.
 	miscTeamPull[teamID] = miscTeamPull[teamID] - (miscMetalDrain[unitID] or 0)
 	if (not reportedError) and (not miscMetalDrain[unitID]) then
 		Spring.Echo("StopMiscPriorityResourcing nil miscMetalDrain")
@@ -422,10 +571,10 @@ function GG.StopMiscPriorityResourcing(unitID,teamID) --remotely remove a forced
 	miscMetalDrain[unitID] = nil
 end
 
-function GG.RemoveMiscPriorityUnit(unitID,teamID) --remotely remove a forced priority command.
+function RemoveMiscPriorityUnit(unitID,teamID) --remotely remove a forced priority command.
 	if UnitMiscPriority[unitID] then
 		if miscMetalDrain[unitID] then
-			GG.StopMiscPriorityResourcing(unitID,teamID)
+			StopMiscPriorityResourcing(unitID,teamID)
 		end
 		local unitDefID = Spring.GetUnitDefID(unitID)
 		local ud = UnitDefs[unitDefID]
@@ -439,13 +588,48 @@ end
 
 function gadget:UnitTaken(unitID, unitDefID, oldTeamID, teamID)
 	if miscMetalDrain[unitID] then
-		GG.StopMiscPriorityResourcing(unitID,oldTeamID)
+		StopMiscPriorityResourcing(unitID,oldTeamID)
 	end
 end
+
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
+-- Debug
+
+local function toggleDebug(cmd, line, words, player)
+	if not Spring.IsCheatingEnabled() then 
+		return
+	end
+	local teamID = tonumber(words[1])
+	Spring.Echo("Debug priority for team " .. (teamID or "nil"))
+	if teamID then
+		if not debugTeam then
+			debugTeam = {}
+		end
+		if debugTeam[teamID] then
+			debugTeam[teamID] = nil
+			if #debugTeam == 0 then
+				debugTeam = {}
+			end
+			Spring.Echo("Disabled")
+		else
+			debugTeam[teamID] = true
+			Spring.Echo("Enabled")
+		end
+	end
+end
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-- Unit Handling
 
 function gadget:Initialize()
+	GG.CheckMiscPriorityBuildStep  = CheckMiscPriorityBuildStep
+	GG.AddMiscPriorityUnit         = AddMiscPriorityUnit
+	GG.StartMiscPriorityResourcing = StartMiscPriorityResourcing
+	GG.StopMiscPriorityResourcing  = StopMiscPriorityResourcing
+	GG.RemoveMiscPriorityUnit      = RemoveMiscPriorityUnit
+
 	gadgetHandler:RegisterCMDID(CMD_PRIORITY)
 	gadgetHandler:RegisterCMDID(CMD_MISC_PRIORITY)
 
@@ -454,6 +638,7 @@ function gadget:Initialize()
 		spInsertUnitCmdDesc(unitID, CommandOrder, CommandDesc)
 	end
 
+	gadgetHandler:AddChatAction("debugpri", toggleDebug, "Debugs priority.")
 end
 
 function gadget:RecvLuaMsg(msg, playerID)
@@ -507,7 +692,7 @@ function gadget:UnitDestroyed(UnitID, unitDefID, teamID)
 	LastUnitFromFactory[UnitID] = nil
     local ud = UnitDefs[unitDefID]
 	if UnitMiscPriority[unitID] then
-		GG.RemoveMiscPriorityUnit(unitID,teamID)
+		RemoveMiscPriorityUnit(unitID,teamID)
 	end
     if ud then
 		if ud.metalStorage and ud.metalStorage > 0 and TeamMetalReserved[teamID] then
@@ -524,45 +709,3 @@ function gadget:UnitDestroyed(UnitID, unitDefID, teamID)
 		end
     end
 end
-
---------------------------------------------------------------------------------
---  END SYNCED
---------------------------------------------------------------------------------
-else
---------------------------------------------------------------------------------
---  UNSYNCED
---------------------------------------------------------------------------------
---[[
-local spGetLocalTeamID = Spring.GetLocalTeamID
-
-local last_sent_in_frame = 0
-
-function gadget:Initialize()
-    gadgetHandler:AddSyncAction('ReserveState',WrapReserveStateToLuaUI)
-    gadgetHandler:AddSyncAction('PriorityStats',WrapPriorityStatsToLuaUI)
-end
-
-function WrapPriorityStatsToLuaUI(_,teamID, highPriorityBP, lowPriorityBP, gameFrame)
-    if (teamID == spGetLocalTeamID() and Script.LuaUI('PriorityStats')) then
-        if last_sent_in_frame ~= gameFrame then
-            Script.LuaUI.PriorityStats(spGetLocalTeamID(), 0, 0)
-            last_sent_in_frame = gameFrame
-        else
-            Script.LuaUI.PriorityStats(teamID, highPriorityBP, lowPriorityBP)
-        end
-    end
-end
-
-function WrapReserveStateToLuaUI(_,teamID, metalReserve, energyReserve)
-    if (teamID == spGetLocalTeamID() and Script.LuaUI('ReserveState')) then
-        Script.LuaUI.ReserveState(teamID, metalReserve, energyReserve)
-    end
-end
---]]
---------------------------------------------------------------------------------
---  UNSYNCED
---------------------------------------------------------------------------------
-end
---------------------------------------------------------------------------------
---  COMMON
---------------------------------------------------------------------------------

@@ -253,6 +253,11 @@ local function ProcessComm(name, config)
 				end
 			end
 		end
+		
+		-- apply misc. defs
+		if config.miscDefs then
+			commDefs[name] = MergeTable(commDefs[name], config.miscDefs, true)
+		end
 	end
 end
 
@@ -395,6 +400,12 @@ for name, data in pairs(commDefs) do
 				weaponData.weaponvelocity = math.max(weaponData.weaponvelocity, math.sqrt(weaponData.range * (weaponData.mygravity or 0.14)*1000))
 			end
 		end
+	end
+
+	-- set morph time
+	if data.customparams.morphto then
+		local morph_time = (commDefs[data.customparams.morphto].buildtime - data.buildtime) / (5 * (data.customparams.level + 2))
+		data.customparams.morphtime = tostring(math.floor(morph_time))
 	end
 end
 

@@ -49,10 +49,11 @@ unitDef = {
   idleAutoHeal           = 5,
   idleTime               = 1800,
   leaveTracks            = true,
+  losEmitHeight          = 40,
   initCloaked            = true,
   maxDamage              = 560,
   maxSlope               = 36,
-  maxVelocity            = 1.7,
+  maxVelocity            = 1.45,
   maxWaterDepth          = 22,
   minCloakDistance       = 155,
   movementClass          = [[KBOT2]],
@@ -102,8 +103,8 @@ unitDef = {
       craterMult              = 0,
 
       damage                  = {
-        default = 1500,
-        planes  = 1500,
+        default = 1500.1,
+        planes  = 1500.1,
         subs    = 75,
       },
 
@@ -114,7 +115,7 @@ unitDef = {
       interceptedByShieldType = 1,
       noSelfDamage            = true,
       range                   = 700,
-      reloadtime              = 15,
+      reloadtime              = 18,
       rgbColor                = [[1 0.2 0.2]],
       separation              = 1.5,
       size                    = 5,

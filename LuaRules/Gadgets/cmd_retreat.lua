@@ -190,7 +190,7 @@ local function ResetRetreatData(unitID)
 end
 
 local function StopRetreating(unitID)
-	local cmds = Spring.GetUnitCommands(unitID)
+	local cmds = Spring.GetUnitCommands(unitID, -1)
 	if retreaterHasRearm[unitID] then
 		for _,cmd in ipairs(cmds) do
 			if retreaterHasRearm[unitID] and cmd.id == CMD_REARM then
@@ -355,7 +355,7 @@ function RetreatCommand(unitID, cmdID, cmdParams, cmdOptions)
 	local state = cmdParams[1]
 	if cmdOptions.right then 
 		state = 0
-	elseif state == 0 then
+	elseif state == 0 then  --note: this means that to set "Retreat Off" (state = 0) you need to use the "right" modifier, whether the command is given by the player using an ui button or by Lua
 		state = 1
 	end
 	retreatables[unitID] = state ~= 0 or wantRetreat[unitID] or isRetreating[unitID]
@@ -396,6 +396,7 @@ end
 
 function gadget:RecvLuaMsg(msg, playerID)
 	local _,_, spec, teamID, allianceID = Spring.GetPlayerInfo(playerID)
+	if spec then return end
 	HandleLuaMessage(msg, teamID);
 end
 

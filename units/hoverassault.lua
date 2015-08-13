@@ -89,8 +89,7 @@ unitDef = {
       craterMult              = 0,
 
       damage                  = {
-        default = 150,
-        planes  = 150,
+        default = 150.1,
         subs    = 7.5,
       },
 
@@ -109,7 +108,6 @@ unitDef = {
       soundHit                = [[weapon/laser/small_laser_fire2]],
       soundStart              = [[weapon/laser/small_laser_fire3]],
       soundTrigger            = true,
-      targetMoveError         = 0.15,
       texture1                = [[energywave]],
       texture2                = [[null]],
       texture3                = [[null]],

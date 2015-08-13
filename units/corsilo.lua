@@ -46,8 +46,8 @@ unitDef = {
   maxWaterDepth                 = 0,
   minCloakDistance              = 150,
   noAutoFire                    = false,
-  script			= [[corsilo.cob]],
   objectName                    = [[Silencer.s3o]],
+  script                        = [[corsilo.lua]],
   seismicSignature              = 4,
   selfDestructAs                = [[ATOMIC_BLAST]],
   side                          = [[CORE]],
@@ -82,12 +82,13 @@ unitDef = {
       cruise                  = [[1]],
 
       damage                  = {
-        default = 11500,
+        default = 11501.1,
       },
 
       edgeEffectiveness       = 0.3,
       explosionGenerator      = [[custom:LONDON]],
       fireStarter             = 0,
+      flightTime              = 50,
       impulseBoost            = 0.5,
       impulseFactor           = 0.2,
       interceptedByShieldType = 65,
@@ -100,7 +101,6 @@ unitDef = {
       smokedelay              = [[0.1]],
       smokeTrail              = false,
       soundHit                = [[explosion/ex_ultra8]],
-      soundStart              = [[weapon/missile/ICBM_launch9]],
       startsmoke              = [[1]],
       startVelocity           = 800,
       stockpile               = true,
@@ -125,7 +125,7 @@ unitDef = {
       category         = [[corpses]],
       damage           = 5000,
       energy           = 0,
-      featureDead      = [[DEAD2]],
+      featureDead      = [[HEAP]],
       featurereclamate = [[SMUDGE01]],
       footprintX       = 6,
       footprintZ       = 8,
@@ -138,28 +138,6 @@ unitDef = {
       seqnamereclamate = [[TREE1RECLAMATE]],
       world            = [[All Worlds]],
     },
-
-
-    DEAD2 = {
-      description      = [[Debris - Silencer]],
-      blocking         = false,
-      category         = [[heaps]],
-      damage           = 5000,
-      energy           = 0,
-      featureDead      = [[HEAP]],
-      featurereclamate = [[SMUDGE01]],
-      footprintX       = 6,
-      footprintZ       = 8,
-      height           = [[4]],
-      hitdensity       = [[100]],
-      metal            = 3200,
-      object           = [[debris4x4a.s3o]],
-      reclaimable      = true,
-      reclaimTime      = 3200,
-      seqnamereclamate = [[TREE1RECLAMATE]],
-      world            = [[All Worlds]],
-    },
-
 
     HEAP  = {
       description      = [[Debris - Silencer]],

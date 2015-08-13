@@ -102,7 +102,6 @@ unitDef = {
       
       damage                  = {
         default = 1000,
-        planes  = 1000,
         subs    = 50,
       },
 
@@ -131,8 +130,14 @@ unitDef = {
       craterBoost             = 0,
       craterMult              = 0,
 
+      customparams = {
+        timeslow_damagefactor = 1,
+        timeslow_onlyslow = 1,
+        timeslow_smartretarget = 0.33,
+      },
+
       damage                  = {
-        default = 200,
+        default = 600,
       },
 
       explosionGenerator      = [[custom:flashslow]],

@@ -51,7 +51,6 @@ unitDef = {
   noAutoFire             = false,
   noChaseCategory        = [[FIXEDWING SATELLITE GUNSHIP SUB]],
   objectName             = [[battleship.s3o]],
-  radarDistance          = 2400,
   script                 = [[corbats.lua]],
   seismicSignature       = 4,
   selfDestructAs         = [[BIG_UNITEX]],
@@ -117,8 +116,8 @@ unitDef = {
       craterMult              = 2,
 
       damage                  = {
-        default = 500,
-        planes  = 500,
+        default = 501.1,
+        planes  = 501.1,
         subs    = 25,
       },
 

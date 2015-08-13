@@ -1,4 +1,5 @@
 include 'constants.lua'
+include "fixedwingTakeOff.lua"
 
 --------------------------------------------------------------------
 -- constants/vars
@@ -8,23 +9,32 @@ local smokePiece = {base}
 
 local SIG_CLOAK = 1
 local CLOAK_TIME = 5000
+
+local SIG_TAKEOFF = 2
+local takeoffHeight = UnitDefNames["corawac"].wantedHeight
 --------------------------------------------------------------------
 -- functions
 --------------------------------------------------------------------
 local function Decloak()
-    Signal(SIG_CLOAK)
-    SetSignalMask(SIG_CLOAK)
-    Sleep(CLOAK_TIME)
-    Spring.SetUnitCloak(unitID, false)
+	Signal(SIG_CLOAK)
+	SetSignalMask(SIG_CLOAK)
+	Sleep(CLOAK_TIME)
+	Spring.SetUnitCloak(unitID, false)
 end
 
 function Cloak()
-    Spring.SetUnitCloak(unitID, 2)
-    StartThread(Decloak)
+	Spring.SetUnitCloak(unitID, 2)
+	StartThread(Decloak)
 end
 
+function script.StopMoving()
+	StartThread(TakeOffThread, takeoffHeight, SIG_TAKEOFF)
+end
+
+
 function script.Create()
-    StartThread(SmokeUnit, smokePiece)
+	StartThread(TakeOffThread, takeoffHeight, SIG_TAKEOFF)
+	StartThread(SmokeUnit, smokePiece)
 end
 
 function script.Killed(recentDamage, maxHealth)

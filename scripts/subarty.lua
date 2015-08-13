@@ -7,71 +7,55 @@ local tube1 = piece "tube1"
 local tube2 = piece "tube2"
 
 local tube = false
-local SIG_MOVE = 1
 
-local function Rise()
-	Move( base, y_axis, 20 )
-	Sleep( 1000 )
-	Move( base, y_axis, 0, 5 )
-end
-
---[[
-local function Swim()
-	Signal(SIG_MOVE)
-	SetSignalMask(SIG_MOVE)
-	while( TRUE )
-	while true do
-		Sleep(250)
-	end
-end
-
-function script.StartMoving()
-	StartThread(Swim)
-end
-
-function script.StopMoving()
-	Signal(SIG_MOVE)
-end
---]]
-function script.Create()
-	--StartThread( Rise )
-end
-
-function script.QueryWeapon1() 
---	return base
+function script.QueryWeapon1()
 	if tube then return tube1
 	else return tube2 end
 end
 
 function script.AimFromWeapon1() return base end
 
-function script.AimWeapon1( heading, pitch )
-
+function script.AimWeapon1(heading, pitch)
 	return true
+end
+
+function script.BlockShot(num, targetID)
+	return GG.OverkillPrevention_CheckBlock(unitID, targetID, 900.1, 120, 0.5, 0.25)
 end
 
 function script.FireWeapon1()
 	tube = not tube
 end
 
---[[
-function script.BlockShot1()
-	local targID = GetUnitValue(COB.TARGET_ID, 1)
-	if targID < 0 then return false end	--attacking ground
-	local ux,uy,uz = Spring.GetUnitBasePosition(targID)
-	local y = Spring.GetGroundHeight(ux, uz)
-	return (y > -3)		--bit of leeway for just being toe deep
+local submerged = true
+local subArmorClass = Game.armorTypes.subs
+local elseArmorClass = Game.armorTypes["else"]
+
+function script.setSFXoccupy(num)
+	if (num == 4) or (num == 0) then
+		submerged = false
+	else
+		submerged = true
+	end
 end
---]]
+
+function script.HitByWeapon (x, z, weaponDefID, damage)
+	if weaponDefID < 0 then return damage end
+	if not submerged then
+		local damages = WeaponDefs[weaponDefID].damages
+		return damage * (damages[elseArmorClass] / damages[subArmorClass])
+	end
+	return damage
+end
 
 function script.Killed(recentDamage, maxHealth)
-	Explode( base, SFX.SHATTER )
+	Explode(base, SFX.SHATTER)
 	local severity = recentDamage / maxHealth
 	if (severity <= .25) then
 		return 1 -- corpsetype
 	elseif (severity <= .5) then
-		return 1 -- corpsetype
-	else		
-		return 2 -- corpsetype
+		return 1
+	else
+		return 2
 	end
 end

@@ -16,48 +16,12 @@ local reverseCompat = not((Game and true) or false) -- Game is nil in 91.0
 local armorDefs = {
   
   SUBS = {
-    "armsub",
-    "corsub",
-    "armsubk",
-    "corshark",
-    "tawf009",
-    "corssub",
-    "armacsub",
-    "coracsub",
-    "armrecl",
-    "correcl",
+    "subarty",
+    "subraider",
+    "subscout",
     "cornukesub",
-    "serpent",
-    "lancelet",
   },
 
-  EMPRESISTANT99 = {
-  },
-  
-  EMPRESISTANT75 = {
-    "corcomlite",
-    "armcomlite",
-  },
-
-  --automatically populated
-  COMMANDERS = {	
-    "cordecom",
-    "armdecom",
-  },
-
-  BURROWED = {	
-    "chicken_digger_b",
-	"chicken_listener_b",
-	--[[
-	"armmine1",
-	"armmine2",
-	"armmine3",
-	"cormine1",
-	"cormine2",
-	"cormine3",
-	--]]
-  },
-  
   CHICKEN = {
     "nest",
 	"chicken_drone",
@@ -80,7 +44,7 @@ local armorDefs = {
 	"chicken_tiamat",
 	"chicken_dragon",
   },
-  
+
   -- populated automatically
   PLANES = {
 	"empiricaldpser",
@@ -90,9 +54,6 @@ local armorDefs = {
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
-local EMP_DAMAGE_MOD = 1/3
-local FLAMER_DAMAGE_MOD = 3
-local GAUSS_DAMAGE_MOD = 1.5
 
 local function tobool(val)
   local t = type(val)
@@ -121,45 +82,70 @@ for name, ud in pairs(DEFS.unitDefs) do
   if (not found) then
     if (tobool(ud.canfly)) then
       table.insert(armorDefs.PLANES, name)
-	elseif (tobool(ud.commander)) then
-	  table.insert(armorDefs.COMMANDERS, name)
     else
       table.insert(armorDefs.ELSE, name)
     end
   end
 end
 
+-- damage to shields modifiers
+local EMP_DAMAGE_MOD = 1/3
+local SLOW_DAMAGE_MOD = 1/3
+local DISARM_DAMAGE_MOD = 1/3
+local FLAMER_DAMAGE_MOD = 3
+local GAUSS_DAMAGE_MOD = 1.5
+
 -- use categories to set default weapon damages
 for name, wd in pairs(DEFS.weaponDefs) do
 	local weaponNameLower = wd.name:lower()
-	local max = -0.000001
+	local maxDamage = -0.000001
 	for _, dAmount in pairs(wd.damage) do
-		max = math.max(max, dAmount)
+		maxDamage = math.max(maxDamage, dAmount)
 	end
 	for categoryName, _ in pairs(armorDefs) do
 		wd.damage[categoryName] = wd.damage[categoryName] or wd.damage.default
 	end
-	wd.damage.default = max
-  
+	wd.damage.default = maxDamage
+
+	-- Stats
+	wd.customparams.statsdamage = wd.customparams.statsdamage or maxDamage
+	
 	-- damage vs shields
 	if wd.customparams and wd.customparams.damage_vs_shield then
 		wd.damage.default = tonumber(wd.customparams.damage_vs_shield)
 	else
+		local cp = wd.customparams or {}
+
 		if wd.paralyzer then
-			wd.damage.default =  max*EMP_DAMAGE_MOD
-			-- add extra damage vs shields for mixed damage units
-			if wd.customparams and wd.customparams.extra_damage then
-				wd.damage.default = wd.damage.default + tonumber(wd.customparams.extra_damage)
+			wd.damage.default = maxDamage * EMP_DAMAGE_MOD
+
+			-- add extra damage vs shields for mixed EMP damage units
+			if cp.extra_damage then
+				wd.damage.default = wd.damage.default + tonumber(cp.extra_damage)
 			end
-		elseif weaponNameLower:find("flamethrower") or weaponNameLower:find("flame thrower") then
-			wd.damage.default =  max*FLAMER_DAMAGE_MOD
-			wd.customparams.stats_damage = max
+		end
+
+		if (cp.timeslow_damagefactor) then
+			if (tobool(cp.timeslow_onlyslow)) then
+				wd.damage.default = 0
+			end
+			wd.damage.default = wd.damage.default + (tonumber(wd.customparams.timeslow_damagefactor) * maxDamage * SLOW_DAMAGE_MOD)
+		end
+
+		if (cp.disarmdamagemult) then
+			if (tobool(cp.disarmdamageonly)) then
+				wd.damage.default = 0
+			end
+			wd.damage.default = wd.damage.default + (tonumber(wd.customparams.disarmdamagemult) * maxDamage * DISARM_DAMAGE_MOD)
+		end
+
+		-- weapon type bonuses
+		if weaponNameLower:find("flamethrower") or weaponNameLower:find("flame thrower") then
+			wd.damage.default = wd.damage.default * FLAMER_DAMAGE_MOD
 		elseif weaponNameLower:find("gauss") then
-			wd.damage.default =  max*GAUSS_DAMAGE_MOD
-			wd.customparams.stats_damage = max
+			wd.damage.default = wd.damage.default * GAUSS_DAMAGE_MOD
 		end
 	end
-	
 end
 
 --------------------------------------------------------------------------------

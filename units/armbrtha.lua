@@ -39,6 +39,7 @@ unitDef = {
   idleAutoHeal                  = 5,
   idleTime                      = 1800,
   levelGround                   = false,
+  losEmitHeight                 = 90,
   maxDamage                     = 4800,
   maxSlope                      = 18,
   maxWaterDepth                 = 0,
@@ -92,11 +93,12 @@ unitDef = {
       },
 	  
       damage                  = {
-        default = 2000,
+        default = 2002.4,
         subs    = 100,
       },
 
       explosionGenerator      = [[custom:lrpc_expl]],
+	  fireTolerance           = 1820, -- 10 degrees
       impulseBoost            = 0.5,
       impulseFactor           = 0.2,
       interceptedByShieldType = 1,

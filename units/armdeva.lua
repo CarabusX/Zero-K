@@ -14,6 +14,10 @@ unitDef = {
   buildTime                     = 220,
   canAttack                     = true,
   category                      = [[FLOAT TURRET]],
+  collisionVolumeOffsets        = [[0 0 0]],
+  collisionVolumeScales         = [[45 45 45]],
+  collisionVolumeTest           = 1,
+  collisionVolumeType           = [[ellipsoid]],
   corpse                        = [[DEAD]],
 
   customParams                  = {
@@ -24,6 +28,8 @@ unitDef = {
     helptext_de    = [[Stardust ist ein Geschützturm mit einem lang perfektionierten und tödlichen energetischen Maschinengewehr. Zwar besitzt es nur eine kurze Reichweite, wodurch es sehr verletzbar gegenüber Skirmishern ist, dennoch machen es die hohe Feuerrate und die AoE zu einer guten Verteidigung gegen Schwärme und leichte Einheiten.]],
     helptext_fr    = [[Le Stardust est une tourelle mitrailleuse r haute energie. Son incroyable cadence de tir lui permettent d'arreter quasiment nimporte quelle nuée de Pilleur ou d'unités légcres, cependant sa portée est relativement limitée, et étant prcs du sol nimporte quel obstacle l'empeche de tirer.]],
     helptext_pl    = [[Stardust posiada dzialko o bardzo duzej sile i szerokim obszarze dzialania, co pozwala mu niszczyc hordy lzejszych jednostek. Ma jednak niski zasieg, co pozwala harcownikom i jednostkom z wiekszym zasiegiem atakowac go bez mozliwosci kontrataku.]],
+    aimposoffset   = [[0 12 0]],
+    midposoffset   = [[0 4 0]],
   },
 
   defaultmissiontype            = [[GUARD_NOMOVE]],
@@ -38,6 +44,7 @@ unitDef = {
   minCloakDistance              = 150,
   noChaseCategory               = [[FIXEDWING LAND SHIP SWIM GUNSHIP SUB HOVER]],
   objectName                    = [[afury.s3o]],
+  script                        = "armdeva.lua",
   seismicSignature              = 4,
   selfDestructAs                = [[LARGE_BUILDINGEX]],
 
@@ -71,6 +78,7 @@ unitDef = {
       accuracy                = 2300,
       alphaDecay              = 0.7,
       areaOfEffect            = 96,
+      avoidFeature            = false,
       burnblow                = true,
       craterBoost             = 0.15,
       craterMult              = 0.3,
@@ -96,7 +104,6 @@ unitDef = {
       soundStart              = [[weapon/heavy_emg]],
       soundStartVolume        = 0.5,
       stages                  = 10,
-      targetMoveError         = 0,
       turret                  = true,
       weaponType              = [[Cannon]],
       weaponVelocity          = 550,
@@ -110,7 +117,7 @@ unitDef = {
       description      = [[Wreckage - Stardust]],
       blocking         = true,
       damage           = 1500,
-      featureDead      = [[DEAD2]],
+      featureDead      = [[HEAP]],
       footprintX       = 3,
       footprintZ       = 3,
       metal            = 88,
@@ -119,20 +126,7 @@ unitDef = {
       reclaimTime      = 88,
     },
 
-    DEAD2 = {
-      description      = [[Debris - Stardust]],
-      blocking         = false,
-      damage           = 1500,
-      featureDead      = [[HEAP]],
-      footprintX       = 3,
-      footprintZ       = 3,
-      metal            = 88,
-      object           = [[debris4x4b.s3o]],
-      reclaimable      = true,
-      reclaimTime      = 88,
-    },
-
-    HEAP  = {
+	HEAP  = {
       description      = [[Debris - Stardust]],
       blocking         = false,
       damage           = 1500,

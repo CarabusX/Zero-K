@@ -105,9 +105,10 @@ unitDef = {
       },
 
       customParams           = {
-	    lups_explodespeed = 1,
-	    lups_explodelife = 0.6,
-	    nofriendlyfire = 1,
+        lups_explodespeed = 1,
+        lups_explodelife = 0.6,
+        nofriendlyfire = 1,
+        timeslow_damagefactor = 3.75,
       },
 
       edgeeffectiveness       = 1,
@@ -141,6 +142,7 @@ unitDef = {
 
       explosionGenerator      = [[custom:NONE]],
       fireStarter             = 0,
+      flightTime              = 1,
       impactOnly              = true,
       interceptedByShieldType = 1,
       range                   = 32,
@@ -178,6 +180,7 @@ unitDef = {
 
       explosionGenerator      = [[custom:NONE]],
       fireStarter             = 0,
+      flightTime              = 1,
       impactOnly              = true,
       interceptedByShieldType = 1,
       range                   = 300,

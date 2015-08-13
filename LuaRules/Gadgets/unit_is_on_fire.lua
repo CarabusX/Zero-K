@@ -1,4 +1,11 @@
 -- $Id: unit_is_on_fire.lua 3309 2008-11-28 04:25:20Z google frog $
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+if not gadgetHandler:IsSyncedCode() then
+	return
+end
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 
 function gadget:GetInfo()
   return {
@@ -14,11 +21,6 @@ end
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
-if (gadgetHandler:IsSyncedCode()) then
--- BEGIN SYNCED
---------------------------------------------------------------------------------
---------------------------------------------------------------------------------
-
 Spring.SetGameRulesParam("unitsOnFire",1)
 
 --// customparams values
@@ -120,8 +122,8 @@ function gadget:UnitDamaged(unitID, unitDefID, unitTeam, damage, paralyzer, weap
 		local fwd = flamerWeaponDefs[weaponID]
 		if (UnitDefs[unitDefID].customParams.fireproof~="1") then
 			if (random() < fwd.burnChance) then
-				if (not unitsOnFire[unitID]) or unitsOnFire[unitID].damageLeft < fwd.maxDamage then
-					local burnLength = fwd.burnTime*(random()*fwd.burnTimeRand + fwd.burnTimeBase)
+				local burnLength = fwd.burnTime*(random()*fwd.burnTimeRand + fwd.burnTimeBase)
+				if (not unitsOnFire[unitID]) or unitsOnFire[unitID].damageLeft < (burnLength*fwd.burnDamage) then
 					unitsOnFire[unitID] = {
 						endFrame    = gameFrame + burnLength, 
 						damageLeft  = burnLength*fwd.burnDamage,
@@ -131,7 +133,6 @@ function gadget:UnitDamaged(unitID, unitDefID, unitTeam, damage, paralyzer, weap
 						weaponID    = weaponID,
 					}
 					SetUnitRulesParam(unitID, "on_fire", 1, LOS_ACCESS)
-					GG.attUnits[unitID] = true
 					GG.UpdateUnitAttributes(unitID)
 				end
 			end
@@ -167,7 +168,5 @@ function gadget:GameFrame(n)
 		end
 		inGameFrame = false 
 	end
-end
-
 end
 

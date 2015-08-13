@@ -1,4 +1,4 @@
-local versionNumber = "1.21"
+local versionNumber = "1.22"
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 function widget:GetInfo()
@@ -24,8 +24,6 @@ local spGetGameRulesParam = Spring.GetGameRulesParam
 -- FIXME use tobool instead of this string comparison silliness
 local coop = (Spring.GetModOptions().coop == "1") or false
 local forcejunior = (Spring.GetModOptions().forcejunior == "1") or false
-local dotaMode = Spring.GetModOptions().zkmode == "dota"
-local ctfMode = Spring.GetModOptions().zkmode == "ctf"
 
 local Chili
 local Window
@@ -36,7 +34,7 @@ local screen0
 local Image
 local Button
 
-local vsx, vsy
+local vsx, vsy = widgetHandler:GetViewSizes()
 local modoptions = Spring.GetModOptions() --used in LuaUI\Configs\startup_info_selector.lua for planetwars
 local selectorShown = false
 local mainWindow
@@ -56,6 +54,14 @@ local WINDOW_WIDTH = 720
 local WINDOW_HEIGHT = 480
 local BUTTON_WIDTH = 128
 local BUTTON_HEIGHT = 128
+
+if (vsx < 1024 or vsy < 768) then 
+	--shrinker
+	WINDOW_WIDTH = vsx* (WINDOW_WIDTH/1024)
+	WINDOW_HEIGHT = vsy* (WINDOW_HEIGHT/768)
+	BUTTON_WIDTH = vsx* (BUTTON_WIDTH/1024)
+	BUTTON_HEIGHT = vsy* (BUTTON_HEIGHT/768)
+end
 
 --local wantLabelUpdate = false
 --------------------------------------------------------------------------------
@@ -111,7 +117,7 @@ end
 function Close(commPicked)
 	if not commPicked then
 		--Spring.Echo("Requesting baseline comm")
-		--Spring.SendLuaRulesMsg("faction:commbasic")
+		--Spring.SendLuaRulesMsg("faction:comm_trainer_strike")
 	end
 	--Spring_SendCommands("say: a:I chose " .. option.button})
 	if mainWindow then mainWindow:Dispose() end
@@ -155,8 +161,9 @@ local function CreateWindow()
 	local i = 0
 	for index,option in ipairs(optionData) do
 		i = i + 1
+		local hideButton = options.hideTrainers.value and option.trainer
 		local button = Button:New {
-			parent = grid,
+			parent = (not hideButton) and grid or nil,
 			caption = "",	--option.name,	--option.trainer and "TRAINER" or "",
 			valign = "bottom",
 			tooltip = option.tooltip, --added comm name under cursor on tooltip too, like for posters
@@ -265,7 +272,7 @@ function widget:Initialize()
 	vsx, vsy = widgetHandler:GetViewSizes()
 
 	widgetHandler:AddAction(actionShow, CreateWindow, nil, "t")
-	if (not noComm) or dotaMode then
+	if (not noComm) then
 		buttonWindow = Window:New{
 			resizable = false,
 			draggable = false,
@@ -331,9 +338,7 @@ function widget:Gameframe(n)
 end
 
 function widget:GameStart()
-	if (not dotaMode) and (not ctfMode) then
-		screen0:RemoveChild(buttonWindow)
-	end
+	screen0:RemoveChild(buttonWindow)
 end
 
 --------------------------------------------------------------------------------

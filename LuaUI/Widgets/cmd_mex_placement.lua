@@ -97,8 +97,10 @@ local MAP_SIZE_Z = Game.mapSizeZ
 local MAP_SIZE_Z_SCALED = MAP_SIZE_Z / METAL_MAP_SQUARE_SIZE
 
 local allyMexColor = {[1] = {0, 1, 1, 0.7}, [2] = {0, 1, 1, 1}}
-local neutralMexColor = {[1] = {1, 1, 0, 0.7}, [2] = {1, 1, 0,1}}
+local neutralMexColor = {[1] = {1.0, 1.0, 1.0, 0.7}, [2] = {1.0, 1.0, 1.0, 1}}
 local enemyMexColor = {[1] = {1, 0, 0, 0.7}, [2] = {1, 0, 0, 1}}
+
+local allyTeams = {}	-- [id] = {team1, team2, ...}
 
 ------------------------------------------------------------
 -- Config
@@ -109,8 +111,8 @@ local TEXT_CORRECT_Y = 1.25
 
 local MINIMAP_DRAW_SIZE = math.max(mapX,mapZ) * 0.0145
 
-options_path = 'Settings/Interface/Metal Spots'
-options_order = { 'drawicons', 'size'}
+options_path = 'Settings/Interface/Map/Metal Spots'
+options_order = { 'drawicons', 'size', 'specPlayerColours', 'rounding'}
 options = {
 	
 	drawicons = {
@@ -123,12 +125,27 @@ options = {
 	size = {
 		name = "Income Display Size", 
 		type = "number", 
-		value = 30, 
+		value = 40, 
 		min = 10,
 		max = 150,
 		step = 5,
 		OnChange = function() updateMexDrawList() end
 	},
+	rounding = {
+		name = "Display digits",
+		type = "number",
+		value = 1,
+		min = 1,
+		max = 4,
+		advanced = true,
+		OnChange = function() updateMexDrawList() end
+	},
+	specPlayerColours = {
+		name = "Use player colours when spectating",
+		type = "bool",
+		value = false,
+		OnChange = function() updateMexDrawList() end
+	}
 }
 
 -------------------------------------------------------------------------------------
@@ -420,7 +437,7 @@ function widget:UnitFinished(unitID, unitDefID, teamID)
 			local spotID = WG.metalSpotsByPos[x] and WG.metalSpotsByPos[x][z]
 			if spotID then
 				spotByID[unitID] = spotID
-				spotData[spotID] = {unitID = unitID, allyTeam = spGetUnitAllyTeam(unitID)}
+				spotData[spotID] = {unitID = unitID, team = Spring.GetUnitTeam(unitID), allyTeam = spGetUnitAllyTeam(unitID)}
 				updateMexDrawList()
 			end
 		elseif spGetUnitAllyTeam(unitID) == myAllyTeam then
@@ -444,6 +461,9 @@ function widget:UnitDestroyed(unitID, unitDefID)
 end
 
 function widget:UnitGiven(unitID, unitDefID, newTeamID, teamID)
+	if mexBuilderDefs[unitDefID] then
+		mexBuilder[unitID] = true
+	end
 	if unitDefID == mexDefID then
 		local done = select(5, spGetUnitHealth(unitID))
 		if done == 1 then
@@ -534,10 +554,20 @@ local miniMexDrawList = 0
 local function getSpotColor(x,y,z,id, specatate, t)
 	if specatate then
 		if spotData[id] then
-			if spotData[id].allyTeam == spGetMyAllyTeamID() then
-				return allyMexColor[t]
+			if options.specPlayerColours.value then
+				local r, g, b = Spring.GetTeamColor(spotData[id].team)
+				local alpha = t == 1 and 0.7 or 1.0 --Judging by colours set up top
+				return {r, g, b, alpha}
 			else
-				return enemyMexColor[t]
+				-- local r, g, b = Spring.GetTeamColor(allyTeams[spotData[id].allyTeam][1])
+				local r, g, b = Spring.GetTeamColor(Spring.GetTeamList(spotData[id].allyTeam)[1])
+				local alpha = t == 1 and 0.7 or 1.0 --Judging by colours set up top
+				return {r, g, b, alpha}
+				-- if spotData[id].allyTeam == spGetMyAllyTeamID() then
+				-- 	return allyMexColor[t]
+				-- else
+				-- 	return enemyMexColor[t]
+				-- end
 			end
 		else
 			return neutralMexColor[t]
@@ -568,14 +598,28 @@ function calcMainMexDrawList()
 
 			local mexColor = getSpotColor(x,y+45,z,i,specatate,1)
 			local metal = spot.metal
+		
+
+			glPushMatrix()	
+			
+			gl.DepthTest(true)
+
+			glColor(0,0,0,0.7)
+			-- glDepthTest(false)
+			glLineWidth(spot.metal*2.4)
+			glDrawGroundCircle(x, 1, z, 40, 21)
+			glColor(mexColor)
+			glLineWidth(spot.metal*1.5)
+			glDrawGroundCircle(x, 1, z, 40, 21)	
+			
+			--glColor(0,1,1)
+			--glRect(x-width/2, z+18, x+width/2, z+20)
+			--glDepthTest(false)
+			glPopMatrix()	
 			
 			glPushMatrix()
 			
-			glLineWidth(spot.metal*1.5)
-			glColor(mexColor)
 			glDepthTest(false)
-			glDrawGroundCircle(x, 1, z, 40, 32)
-			
 			if options.drawicons.value then
 				local size = 1
 				if metal > 10 then
@@ -595,19 +639,24 @@ function calcMainMexDrawList()
 				glColor(1,1,1)
 				glTexture("LuaUI/Images/ibeam.png")
 				local width = metal*size
-				glTexRect(x-width/2, z+20, x+width/2, z+20+size,0,0,metal,1)
+				glTexRect(x-width/2, z+40, x+width/2, z+40+size,0,0,metal,1)
 				glTexture(false)
 			else
-				glRotate(-90,1,0,0)		
-				glTranslate(x,-z-20-options.size.value, y+2)
+				-- Draws a metal bar at the center of the metal spot
+				glRotate(90,1,0,0)
+				glTranslate(0,0,-y)
 				glColor(1,1,1)
-				glText( ("%.2f"):format(metal), 0.0, 0.0, options.size.value , "cno")
+				glTexture("LuaUI/Images/ibeam.png")
+				glTexRect(x-25, z-25, x+25, z+25,0,0,1,1)
+				glTexture(false)
+				
+				-- Draws the metal spot's base income "south" of the metal spot
+				glRotate(180,1,0,0)
+				glTranslate(x,-z-40-options.size.value, 0)
+				glText("+" .. ("%."..options.rounding.value.."f"):format(metal), 0.0, 0.0, options.size.value , "cno")
 			end	
-			
-			--glColor(0,1,1)
-			--glRect(x-width/2, z+18, x+width/2, z+20)
-			--glDepthTest(false)
-			glPopMatrix()
+	
+			glPopMatrix()	
 		end
 
 		glLineWidth(1.0)
@@ -672,7 +721,13 @@ function widget:DrawWorldPreUnit()
 	drawMexSpots = WG.metalSpots and (-mexDefID == cmdID or CMD_AREA_MEX == cmdID or peruse)
 
 	if drawMexSpots then
+			
+			gl.DepthTest(true)
+			gl.DepthMask(true)
 		glCallList(mainMexDrawList)
+			
+			gl.DepthTest(false)
+			gl.DepthMask(false)
 	end
 end
 
@@ -753,8 +808,11 @@ function widget:DrawInMiniMap()
 
 			local mexColor = getSpotColor(x,y,z,i,specatate,2)
 			
-			glLineWidth((spot.metal > 0 and spot.metal) or 0.1)
 			glLighting(false)
+			glColor(0,0,0,1)
+			glLineWidth(((spot.metal > 0 and spot.metal) or 0.1)*2.0)
+			glDrawGroundCircle(x, 0, z, MINIMAP_DRAW_SIZE, 32)
+			glLineWidth((spot.metal > 0 and spot.metal) or 0.1)
 			glColor(mexColor)
 			
 			glDrawGroundCircle(x, 0, z, MINIMAP_DRAW_SIZE, 32)

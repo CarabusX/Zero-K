@@ -1,5 +1,7 @@
 include "constants.lua"
 include "bombers.lua"
+include "fixedwingTakeOff.lua"
+
 
 local flare1 = piece 'flare1' 
 local flare2 = piece 'flare2' 
@@ -21,29 +23,31 @@ local smokePiece = {base}
 
 --Signal
 local SIG_move = 1
+local SIG_TAKEOFF = 2
+local takeoffHeight = UnitDefNames["armcybr"].wantedHeight
 
 local gun_1 = false
 
 local function Stopping()
 	Signal(SIG_move)
 	SetSignalMask(SIG_move)
-	Move( wing1 , x_axis, -0, 1.65)
-	Move( wing1 , z_axis, 0, 0.35 )
-	Move( wing2 , x_axis, 0, 1.65 )
-	Move( wing2 , z_axis, 0, 0.35)
-	Turn( wing1 , z_axis, 0, math.rad(0.62) )
-	Turn( wing2 , z_axis, 0, math.rad(1.85) )
+	Move(wing1, x_axis, -0, 1.65)
+	Move(wing1, z_axis, 0, 0.35)
+	Move(wing2, x_axis, 0, 1.65)
+	Move(wing2, z_axis, 0, 0.35)
+	Turn(wing1, z_axis, 0, math.rad(0.62))
+	Turn(wing2, z_axis, 0, math.rad(1.85))
 end
 
 local function Moving()
 	Signal(SIG_move)
 	SetSignalMask(SIG_move)
-	Move( wing1 , x_axis, 2.4, 1.65 )
-	Move( wing1 , z_axis, -0.5, 0.35)
-	Move( wing2 , x_axis, -2.4, 1.65 )
-	Move( wing2 , z_axis, -0.5, 0.35)
-	Turn( wing1 , z_axis, math.rad(-2.7), math.rad(1.85) )
-	Turn( wing2 , z_axis, math.rad(-2.7), math.rad(1.85))
+	Move(wing1, x_axis, 2.4, 1.65)
+	Move(wing1, z_axis, -0.5, 0.35)
+	Move(wing2, x_axis, -2.4, 1.65)
+	Move(wing2, z_axis, -0.5, 0.35)
+	Turn(wing1, z_axis, math.rad(-2.7), math.rad(1.85))
+	Turn(wing2, z_axis, math.rad(-2.7), math.rad(1.85))
 end
 
 function script.StartMoving()
@@ -52,28 +56,30 @@ end
 
 function script.StopMoving()
 	StartThread(Stopping)
+	StartThread(TakeOffThread, takeoffHeight, SIG_TAKEOFF)
 end
 
 function script.MoveRate(rate)
 	if rate == 1 then
 		--Signal(SIG_BARREL)
 		--SetSignalMask(SIG_BARREL)
-		Turn( base , z_axis, math.rad(-240), math.rad(120) )
+		Turn(base, z_axis, math.rad(-240), math.rad(120))
 		WaitForTurn(base, z_axis)
-		Turn( base , z_axis, math.rad(-(120)), math.rad(180) )
+		Turn(base, z_axis, math.rad(-(120)), math.rad(180))
 		WaitForTurn(base, z_axis)
-		Turn( base , z_axis, 0, math.rad(120) )
+		Turn(base, z_axis, 0, math.rad(120))
 	end
 end
 
 function script.Create()
+	StartThread(TakeOffThread, takeoffHeight, SIG_TAKEOFF)
 	StartThread(SmokeUnit, smokePiece)
-	Hide( rearthrust)
-	Hide( wingthrust1)
-	Hide( wingthrust2)
-	Hide( flare1)
-	Hide( flare2)
-	Hide( drop)
+	Hide(rearthrust)
+	Hide(wingthrust1)
+	Hide(wingthrust2)
+	Hide(flare1)
+	Hide(flare2)
+	Hide(drop)
 end
 
 function script.FireWeapon(num)

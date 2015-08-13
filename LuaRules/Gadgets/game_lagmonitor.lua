@@ -1,4 +1,8 @@
--- $Id: unit_noselfpwn.lua 3171 2008-11-06 09:06:29Z det $
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+if not gadgetHandler:IsSyncedCode() then
+	return
+end
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 
@@ -26,19 +30,14 @@ end
 --3) wait 3 strike (3 time AFK & Ping) before --> mark player as AFK/Lagging
 
 --Everything else: anti-bug, syntax, methods, ect
---------------------------------------------------------------------------------
---------------------------------------------------------------------------------
-if (gadgetHandler:IsSyncedCode()) then -- SYNCED ---
---------------------------------------------------------------------------------
---------------------------------------------------------------------------------
 local lineage = {} --keep track of unit ownership: Is populated when gadget give away units, and when units is created. Depopulated when units is destroyed, or is finished construction, or when gadget return units to owner.
 local afkTeams = {}
-local tickTockCounter = {} --remember how many second a player is in AFK mode. To add a delay before unit transfer commence.
 local unitAlreadyFinished = {}
 local oldTeam = {} -- team which player was on last frame
 local oldAllyTeam = {} -- allyTeam which player was on last frame
 local factories = {}
 local transferredFactories = {} -- unitDef and health states of the unit that was being produced be the transferred factory
+local shareLevels = {}
 
 GG.Lagmonitor_activeTeams = {}
 
@@ -144,15 +143,6 @@ function gadget:UnitFinished(unitID, unitDefID, unitTeam) --player who finished 
 	unitAlreadyFinished[unitID] = true --for reverse build
 end
 
-GG.allowTransfer = false
---FIXME block transfers for /take but allow manual H/crude list gives
---[[
-function gadget:AllowUnitTransfer(unitID, unitDefID, oldTeam, newTeam, capture)
-	if capture then return true end
-	return GG.allowTransfer
-end
-]]--
-
 local pActivity = {}
 
 function gadget:RecvLuaMsg(msg, playerID)
@@ -219,7 +209,9 @@ local function TransferUnitAndKeepProduction(unitID, newTeamID, given)
 			end
 		end
 	end
+	GG.allowTransfer = true
 	spTransferUnit(unitID, newTeamID, given)
+	GG.allowTransfer = false
 end
 
 function gadget:GameFrame(n)
@@ -267,8 +259,7 @@ function gadget:GameFrame(n)
 			if not (spec or isAI) then
 				if (afkTeams[team] == true) then  -- team was AFK
 					if active and ping <= 2000 and afk < AFK_THRESHOLD then -- team no longer AFK, return his or her units
-						spEcho("Player " .. name .. " is no longer lagging or AFK; returning all his or her units")
-						GG.allowTransfer = true
+						spEcho("game_message: Player " .. name .. " is no longer lagging or AFK; returning all his or her units")
 						
 						for unitID, teamList in pairs(lineage) do --Return unit to the oldest inheritor (or to original owner if possible)
 							local delete = false;
@@ -286,23 +277,19 @@ function gadget:GameFrame(n)
 								end
 							end
 						end
-						GG.allowTransfer = false
+
+						if (shareLevels[team]) then
+							Spring.SetTeamShareLevel(team, "metal",  shareLevels[team])
+							shareLevels[team] = nil
+						end
+
 						afkTeams[team] = nil
 						GG.Lagmonitor_activeTeams[allyTeam].count = GG.Lagmonitor_activeTeams[allyTeam].count + 1
 						GG.Lagmonitor_activeTeams[allyTeam][team] = true
 					end
 				end
 				if (not active or ping >= LAG_THRESHOLD or afk > AFK_THRESHOLD) then -- player afk: mark him, except AIs
-					--afkPlayers = afkPlayers .. (10000 + playerID*100 + allyTeam) --compose a string of number that contain playerID & allyTeam information
-					tickTockCounter[playerID] = (tickTockCounter[playerID] or 0) + 1 --tick tock counter ++. count-up 1
-					if tickTockCounter[playerID] >= 2 or justResigned then --team is to be tagged as lagg-er/AFK-er after 3 passes (3 times 50frame = 5 second).
-						local units = spGetTeamUnits(team)
-						if units~=nil and #units > 0 then
-							laggers[playerID] = {name = name, team = team, allyTeam = allyTeam, units = units, resigned = justResigned}
-						end
-					end
-				else --if not at all AFK or lagging: then...
-					tickTockCounter[playerID] = nil -- empty tick-tock clock. We want to reset the counter when the player return.
+					laggers[playerID] = {name = name, team = team, allyTeam = allyTeam, resigned = justResigned}
 				end
 			elseif (spec and not isAI) then
 				specList[playerID] = true --record spectator list in non-AI team
@@ -331,13 +318,25 @@ function gadget:GameFrame(n)
 
 				-- okay, we have someone to give to, prep transfer
 				if recepientByAllyTeam[allyTeam] then
-					if (afkTeams[team] == nil) then -- if team was not an AFK-er (but now is an AFK-er) then process the following... else do nothing for the same AFK-er.
-						--REASON for WHY THE ABOVE^ CHECK was ADDED: if someone sent units to this AFK-er then (typically) var:"laggers[playerID]" will be filled twice for the same player (line 161) & normally unit will be sent (redirected) to the non-AFK-er (line 198), but (unfortunately) equation:"GG.Lagmonitor_activeTeams[allyTeam].count = GG.Lagmonitor_activeTeams[allyTeam].count - 1" will also run twice for the AFK ally (line 193) and it will effect 'unit_mex_overdrive.lua on line 999'.
+					if (afkTeams[team] == nil) then -- if team was not an AFK-er (but now is an AFK-er) then process the following, but do nothing for the same AFK-er.
+						--REASON for WHY THE ABOVE^ CHECK was ADDED: if someone sent units to this AFK-er then (typically) var:"laggers[playerID]" will be filled twice for the same player & normally unit will be sent (redirected back) to the non-AFK-er, but (unfortunately) equation:"GG.Lagmonitor_activeTeams[allyTeam].count = GG.Lagmonitor_activeTeams[allyTeam].count - 1" will can also run twice for the AFK-er ally and it will effect 'unit_mex_overdrive.lua'.
 						GG.Lagmonitor_activeTeams[allyTeam].count = GG.Lagmonitor_activeTeams[allyTeam].count - 1
 						GG.Lagmonitor_activeTeams[allyTeam][team] = false
 					end
-					afkTeams[team] = true --mark team as AFK
-					local units = lagger.units or {}
+					afkTeams[team] = true --mark team as AFK -- orly
+					
+					local mShareLevel = select(6, Spring.GetTeamResources(team, "metal"))
+
+					if (mShareLevel > 0) then
+						shareLevels[team] = mShareLevel
+					end
+
+					Spring.SetTeamShareLevel(team, "metal",  0)
+					-- Energy share is not set because the storage needs to be full for full overdrive.
+					-- Also energy income is mostly private and a large energy influx to the rest of the 
+					-- team is likely to be wasted or overdriven inefficently.
+
+					local units = spGetTeamUnits(team) or {}
 					if #units > 0 then -- transfer units when number of units in AFK team is > 0
 						-- Transfer Units
 						GG.allowTransfer = true
@@ -356,16 +355,11 @@ function gadget:GameFrame(n)
 						end
 						GG.allowTransfer = false
 
-						-- Transfer metal to reviever, engine handles excess going to allies if it occurs.
-						local spareMetal = spGetTeamResources(team,"metal") or 0
-						spUseTeamResource(team,"metal",spareMetal)
-						spAddTeamResource(recepientByAllyTeam[allyTeam].team,"metal",spareMetal)
-
 						-- Send message
 						if lagger.resigned then
-							spEcho(lagger.name .. " resigned, giving all units to ".. recepientByAllyTeam[allyTeam].name .. " (ally #".. allyTeam ..")")
+							spEcho("game_message: " .. lagger.name .. " resigned, giving all units to ".. recepientByAllyTeam[allyTeam].name .. " (ally #".. allyTeam ..")")
 						else
-							spEcho("Giving all units of "..lagger.name .. " to " .. recepientByAllyTeam[allyTeam].name .. " due to lag/AFK (ally #".. allyTeam ..")")
+							spEcho("game_message: Giving all units of "..lagger.name .. " to " .. recepientByAllyTeam[allyTeam].name .. " due to lag/AFK (ally #".. allyTeam ..")")
 						end
 					end
 				end	-- if
@@ -376,19 +370,4 @@ end
 
 function gadget:GameOver()
 	gadgetHandler:RemoveGadget() --shutdown after game over, so that at end of a REPLAY Lagmonitor doesn't bounce unit among player
-end
---[[
-else -- UNSYNCED ---
-
-	function WrapToLuaUI(_,afkPlayer)
-		if (Script.LuaUI('LagmonitorAFK')) then
-			Script.LuaUI.LagmonitorAFK(afkPlayer)
-		end
-	end
-
-	function gadget:Initialize() --Reference: http://springrts.com/phpbb/viewtopic.php?f=23&t=24781 "Gadget and Widget Cross Communication"
-		gadgetHandler:AddSyncAction('LagmonitorAFK',WrapToLuaUI)
-	end
---]]
-
 end

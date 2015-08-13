@@ -68,6 +68,7 @@ unitDef = {
       name                    = [[Napalm Missile]],
       cegTag                  = [[napalmtrail]],
       areaOfEffect            = 512,
+	  craterAreaOfEffect      = 64,
       avoidFriendly           = false,
       collideFriendly         = false,
       craterBoost             = 4,
@@ -76,16 +77,25 @@ unitDef = {
       customParams        	  = {
         setunitsonfire = "1",
         burntime = 90,
+
+		stats_hide_dps = 1, -- one use
+		stats_hide_reload = 1,
+
+		area_damage = 1,
+		area_damage_radius = 256,
+		area_damage_dps = 20,
+		area_damage_duration = 45,
       },
 
       damage                  = {
-        default = 150,
+        default = 151,
         subs    = 7.5,
       },
 
       edgeEffectiveness       = 0.4,
       explosionGenerator      = [[custom:napalm_missile]],
       fireStarter             = 220,
+      flightTime              = 100,
       impulseBoost            = 0,
       impulseFactor           = 0,
       interceptedByShieldType = 1,

@@ -92,7 +92,7 @@ VFSMODE = localWidgetsFirst and VFS.RAW_FIRST
 VFSMODE = VFSMODE or localWidgets and VFS.ZIP_FIRST
 VFSMODE = VFSMODE or VFS.ZIP
 
-local detailLevel = 2 -- Spring.GetConfigInt("widgetDetailLevel", 3)
+local detailLevel = Spring.GetConfigInt("widgetDetailLevel", 3)
 
 --------------------------------------------------------------------------------
 
@@ -164,6 +164,7 @@ local flexCallIns = {
   'UnitFinished',
   'UnitFromFactory',
   'UnitDestroyed',
+  'UnitDestroyedByTeam',
   'UnitExperience',
   'UnitTaken',
   'UnitGiven',
@@ -171,6 +172,7 @@ local flexCallIns = {
   'UnitCommand',
   'UnitCmdDone',
   'UnitDamaged',
+  'UnitStunned',
   'UnitEnteredRadar',
   'UnitEnteredLos',
   'UnitLeftRadar',
@@ -218,6 +220,7 @@ local callInLists = {
   'DrawScreen',
   'KeyPress',
   'KeyRelease',
+  'TextInput',
   'MousePress',
   'MouseWheel',
   'JoyAxis',
@@ -303,11 +306,11 @@ function widgetHandler:LoadOrderList()
 		self.orderList = {}
 		self.orderList.version = ORDER_VERSION
 	end 
-	local detailLevel = 2 -- Spring.GetConfigInt("widgetDetailLevel", 2)
-	--if (self.orderList.lastWidgetDetailLevel ~= detailLevel) then
-	--	resetWidgetDetailLevel = true
-	--	self.orderList.lastWidgetDetailLevel = detailLevel
-	--end 
+	local detailLevel = Spring.GetConfigInt("widgetDetailLevel", 2)
+	if (self.orderList.lastWidgetDetailLevel ~= detailLevel) then
+		resetWidgetDetailLevel = true
+		self.orderList.lastWidgetDetailLevel = detailLevel
+	end 
   end
 end
 
@@ -531,15 +534,15 @@ function widgetHandler:LoadWidget(filename, _VFSMODE)
     enabled = false
   end
 
-  --if resetWidgetDetailLevel and info.detailsDefault ~= nil then
-  --  if type(info.detailsDefault) == "table" then
-  --    enabled = info.detailsDefault[detailLevel] and true
-  --  elseif type(info.detailsDefault) == "number" then
-  --    enabled = detailLevel >= info.detailsDefault
-  --  elseif tonumber(info.detailsDefault) then
-  --    enabled = detailLevel >= tonumber(info.detailsDefault)
-  --  end
-  --end
+  if resetWidgetDetailLevel and info.detailsDefault ~= nil then
+	if type(info.detailsDefault) == "table" then
+		enabled = info.detailsDefault[detailLevel] and true
+	elseif type(info.detailsDefault) == "number" then
+		enabled = detailLevel >= info.detailsDefault
+	elseif tonumber(info.detailsDefault) then
+		enabled = detailLevel >= tonumber(info.detailsDefault)
+	end
+  end
 			 
   if (enabled) then
 	-- this will be an active widget
@@ -1237,7 +1240,59 @@ function widgetHandler:CommandNotify(id, params, options)
   return false
 end
 
---local MUTE_SPECTATORS = Spring.GetModOptions().mutespec
+local MUTE_SPECTATORS = Spring.GetModOptions().mutespec or 'autodetect'
+local MUTE_LOBBY = Spring.GetModOptions().mutelobby or 'autodetect'
+local playerNameToID 
+
+do
+	local teams = Spring.GetTeamList();
+	local humanAlly = {}
+	local humanAllyCount = 0
+	gaiaTeam = Spring.GetGaiaTeamID()
+	for _, teamID in ipairs(teams) do
+		local teamLuaAI = Spring.GetTeamLuaAI(teamID)
+		if ((teamLuaAI == nil or teamLuaAI == "") and teamID ~= gaiaTeam) then
+			local _,_,_,ai,side,ally = Spring.GetTeamInfo(teamID)
+			if (not ai) and (not humanAlly[ally]) then 
+				humanAlly[ally] = true
+				humanAllyCount = humanAllyCount + 1
+			end	
+		end
+	end
+	
+	if MUTE_SPECTATORS == 'autodetect' then
+		if humanAllyCount > 2 then
+			MUTE_SPECTATORS = true
+		else
+			MUTE_SPECTATORS = false
+		end
+	else
+		MUTE_SPECTATORS = (MUTE_SPECTATORS == 'mute')
+	end
+	
+	if MUTE_LOBBY == 'autodetect' then
+		if humanAllyCount > 2 then 
+			MUTE_LOBBY = true
+		else
+			MUTE_LOBBY = false
+		end
+	else
+		MUTE_LOBBY = (MUTE_LOBBY == 'mute')
+	end
+
+	if MUTE_LOBBY then
+		playerNameToID = {}
+		local playerList = Spring.GetPlayerList()
+		for i = 1, #playerList do
+			local playerID = playerList[i]
+			local name, _, spectating = Spring.GetPlayerInfo(playerID)
+			if not spectating then
+				playerNameToID[name] = playerID
+			end
+		end
+	end
+end
+
 
 --NOTE: StringStarts() and MessageProcessor is included in "chat_preprocess.lua"
 function widgetHandler:AddConsoleLine(msg, priority)
@@ -1263,24 +1318,49 @@ function widgetHandler:AddConsoleLine(msg, priority)
 	--censor message for muted player. This is mandatory, everyone is forced to close ears to muted players (ie: if it is optional, then everyone will opt to hear muted player for spec-cheat info. Thus it will defeat the purpose of mute)
 	local newMsg = { text = msg, priority = priority }
 	MessageProcessor:ProcessConsoleLine(newMsg) --chat_preprocess.lua
-	if newMsg.msgtype ~= 'other' and newMsg.msgtype ~= 'autohost' then 
+	if newMsg.msgtype ~= 'other' and newMsg.msgtype ~= 'autohost' and newMsg.msgtype ~= 'game_message' then 
+		if MUTE_SPECTATORS and newMsg.msgtype == 'spec_to_everyone' then
+			local spectating = select(1, Spring.GetSpectatingState())
+			if not spectating then
+				return
+			end
+			newMsg.msgtype = 'spec_to_specs'
+		end
 		local playerID_msg = newMsg.player and newMsg.player.id --retrieve playerID from message.
-		--if MUTE_SPECTATORS and not select(1, Spring.GetSpectatingState()) then
-		--	local specMessage = select(3, Spring.GetPlayerInfo(playerID_msg))
-		--	if specMessage then
-		--		return
-		--	end
-		--end
 		local customkeys = select(10, Spring.GetPlayerInfo(playerID_msg))
 		if customkeys and customkeys.muted then
 			local myPlayerID = Spring.GetLocalPlayerID()
 			if myPlayerID == playerID_msg then --if I am the muted, then:
-				newMsg.argument="<your message was blocked by mute>"	--remind myself that I am muted.		
+				newMsg.argument = "<your message was blocked by mute>"	--remind myself that I am muted.		
 				msg = "<your message was blocked by mute>" 
 			else --if I am NOT the muted, then: delete this message
 				return
 			end
 			--TODO: improve chili_chat2 spam-filter/dedupe-detection too.
+		end
+	end
+	
+	if MUTE_LOBBY and newMsg.msgtype == 'autohost' then
+		local spectating = select(1, Spring.GetSpectatingState())
+		if (not spectating) and newMsg.argument then
+			-- Chat from lobby has format '<PlayerName>message'
+			if string.sub(newMsg.argument, 1, 1) == "<" then
+				local endChar = string.find(newMsg.argument, ">")
+				if endChar then
+					local name = string.sub(newMsg.argument, 2, endChar-1)
+					if playerNameToID[name] then
+						local spectating = select(3, Spring.GetPlayerInfo(playerNameToID[name]))
+						if spectating then
+							playerNameToID[name] = nil
+							return
+						end
+					else
+						return
+					end
+				else
+					return
+				end
+			end
 		end
 	end
   
@@ -1464,6 +1544,19 @@ function widgetHandler:KeyRelease(key, mods, label, unicode)
 
   for _,w in ipairs(self.KeyReleaseList) do
     if (w:KeyRelease(key, mods, label, unicode)) then
+      return true
+    end
+  end
+  return false
+end
+
+function widgetHandler:TextInput(utf8, ...)
+  if (self.tweakMode) then
+    return true
+  end
+
+  for _,w in ipairs(self.TextInputList) do
+    if (w:TextInput(utf8, ...)) then
       return true
     end
   end
@@ -1875,6 +1968,14 @@ function widgetHandler:UnitDestroyed(unitID, unitDefID, unitTeam)
 end
 
 
+function widgetHandler:UnitDestroyedByTeam(unitID, unitDefID, unitTeam, attTeamID)
+  for _,w in ipairs(self.UnitDestroyedByTeamList) do
+    w:UnitDestroyedByTeam(unitID, unitDefID, unitTeam, attTeamID)
+  end
+  return
+end
+
+
 function widgetHandler:UnitExperience(unitID,     unitDefID,     unitTeam,
                                       experience, oldExperience)
   for _,w in ipairs(self.UnitExperienceList) do
@@ -1931,6 +2032,13 @@ function widgetHandler:UnitDamaged(unitID, unitDefID, unitTeam,
                                    damage, paralyzer)
   for _,w in ipairs(self.UnitDamagedList) do
     w:UnitDamaged(unitID, unitDefID, unitTeam, damage, paralyzer)
+  end
+  return
+end
+
+function widgetHandler:UnitStunned(unitID, unitDefID, unitTeam, stunned)
+  for _,w in ipairs(self.UnitStunnedList) do
+    w:UnitStunned(unitID, unitDefID, unitTeam, stunned)
   end
   return
 end

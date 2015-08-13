@@ -30,8 +30,10 @@ unitDef = {
     pylonrange     = 60,
     windgen        = true,
     modelradius    = [[15]],
+	removewait     = 1,
   },
 
+  energyMake                    = 1.2,
   energyUse                     = 0,
   explodeAs                     = [[SMALL_BUILDINGEX]],
   floater                       = true,
@@ -41,6 +43,7 @@ unitDef = {
   idleAutoHeal                  = 5,
   idleTime                      = 1800,
   levelGround                   = false,
+  losEmitHeight                 = 30,
   maxDamage                     = 130,
   maxSlope                      = 50,
   minCloakDistance              = 150,

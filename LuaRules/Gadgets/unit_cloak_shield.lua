@@ -34,6 +34,7 @@ end
 --------------------------------------------------------------------------------
 
 include("LuaRules/Configs/customcmds.h.lua")
+include("LuaRules/Configs/constants.lua")
 
 local SYNCSTR = "unit_cloak_shield"
 
@@ -104,6 +105,7 @@ local function ValidateCloakShieldDefs(mds)
       newData.shrinkRate = def.shrinkRate or 256
       newData.selfCloak  = def.selfCloak or false
       newData.decloakDistance  = def.decloakDistance or false
+      newData.radiusException  = def.radiusException or {}
       newData.isTransport = (ud.transportCapacity >= 1)
       newDefs[ud.id] = newData
     end
@@ -184,7 +186,7 @@ local function AddCloakShieldUnit(unitID, cloakShieldDef)
     radius  = 0,
     minrad  = cloakShieldDef.minrad,
     maxrad  = cloakShieldDef.maxrad,
-    energy  = cloakShieldDef.energy / 32,
+    energy  = cloakShieldDef.energy / TEAM_SLOWUPDATE_RATE,
     isTransport = cloakShieldDef.isTransport,
     unitRadius  = Spring.GetUnitRadius(unitID),
     
@@ -200,21 +202,25 @@ local function AddCloakShieldUnit(unitID, cloakShieldDef)
 end
 
 local alliedTrueTable = {allied = true}
-local function SetUnitCloakAndParam(unitID, level)
+local function SetUnitCloakAndParam(unitID, level, decloakDistance)
 	if level then
 		local cannotCloak = GetUnitRulesParam(unitID, "cannotcloak")
 		if cannotCloak ~= 1 then
-			SetUnitCloak(unitID, level)
+			local changeRadius = true
+			if cloakers[unitID] and cloakers[unitID].radius > 0 then
+				changeRadius = false
+			end
+			SetUnitCloak(unitID, level, ((changeRadius and decloakDistance) or false))
 		end
 	else
 		local wantCloak = GetUnitRulesParam(unitID, "wantcloak")
 		if wantCloak == 1 then
 			local cannotCloak = GetUnitRulesParam(unitID, "cannotcloak")
 			if cannotCloak ~= 1 then
-				SetUnitCloak(unitID, 1)
+				SetUnitCloak(unitID, 1, false)
 			end
 		else
-			SetUnitCloak(unitID, 0)
+			SetUnitCloak(unitID, 0, false)
 		end
 	end
 	SetUnitRulesParam(unitID, "areacloaked", (level and 1) or 0, alliedTrueTable)
@@ -309,6 +315,7 @@ local function UpdateCloakees(data)
   local level     = data.def.level
   local selfCloak = data.def.selfCloak
   local decloakDistance = data.def.decloakDistance
+  local radiusException = data.def.radiusException
   local x, y, z = GetUnitPosition(unitID)
   if (x == nil) then return end
   local closeUnits = GetUnitsInSphere(x, y, z, radius)
@@ -319,11 +326,11 @@ local function UpdateCloakees(data)
     if ((not uncloakableDefs[udid]) and (GetUnitAllyTeam(cloakee) == allyTeam)) then
       if (cloakee ~= unitID) then
         --other units
-        SetUnitCloakAndParam(cloakee, level)
+        SetUnitCloakAndParam(cloakee, level, (not radiusException[udid]) and decloakDistance)
         cloakees[cloakee] = true
       elseif (selfCloak) then
         --self cloak
-        SetUnitCloakAndParam(cloakee, level)
+        SetUnitCloakAndParam(cloakee, level, (not radiusException[udid]) and decloakDistance)
         cloakees[cloakee] = true
       end
     end
@@ -338,7 +345,7 @@ local function UpdateCloakees(data)
           local udid = GetUnitDefID(cloakeeLvl2)
           if ((not uncloakableDefs[udid]) and
               (GetUnitAllyTeam(cloakeeLvl2) == allyTeam)) then
-            SetUnitCloakAndParam(cloakeeLvl2, 4)
+            SetUnitCloakAndParam(cloakeeLvl2, 4, (not radiusException[udid]) and decloakDistance)
             -- note: this gives perfect cloaking, but is the only level
             -- to work under paralysis
             cloakees[cloakeeLvl2] = true
@@ -355,7 +362,7 @@ local function UpdateCloakees(data)
         local udid = GetUnitDefID(cloakee)
         if ((not uncloakableDefs[udid]) and
             (GetUnitAllyTeam(cloakee) == allyTeam)) then
-          SetUnitCloakAndParam(cloakee, level)
+          SetUnitCloakAndParam(cloakee, level, (not radiusException[udid]) and decloakDistance)
           cloakees[cloakee] = true
         end
       end

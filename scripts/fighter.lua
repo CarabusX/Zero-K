@@ -1,8 +1,8 @@
 include "constants.lua"
 
 --pieces
-local  base, flare1, flare2, nozzle1, nozzle2, missile, rgun, lgun, rwing, lwing, rjet, ljet, body 
-	= piece( "base", "flare1", "flare2", "nozzle1", "nozzle2", "missile", "rgun", "lgun", "rwing", "lwing", "rjet", "ljet", "body")
+local base, flare1, flare2, nozzle1, nozzle2, missile, rgun, lgun, rwing, lwing, rjet, ljet, body 
+	= piece("base", "flare1", "flare2", "nozzle1", "nozzle2", "missile", "rgun", "lgun", "rwing", "lwing", "rjet", "ljet", "body")
 
 local smokePiece = {base, rwing, lwing}
 
@@ -13,8 +13,9 @@ local flare = {
 	[1] = flare2,
 }
 
-local SPEEDUP_FACTOR = 5
-local BOOSTUP_FACTOR = 6
+local SPEEDUP_FACTOR = tonumber (UnitDef.customParams.boost_speed_mult)
+local BOOSTUP_FACTOR = tonumber (UnitDef.customParams.boost_accel_mult)
+local SPEEDUP_DURATION = tonumber (UnitDef.customParams.boost_duration)
 		
 ----------------------------------------------------------
 
@@ -35,7 +36,7 @@ end
 ----------------------------------------------------------
 
 function SprintThread()
-	for i=1,30 do
+	for i=1, SPEEDUP_DURATION do
 		EmitSfx(ljet, 1027)
 		EmitSfx(rjet, 1027)
 		Sleep(33)
@@ -60,7 +61,6 @@ function Sprint()
 	Spring.SetUnitRulesParam(unitID, "selfMoveSpeedChange", SPEEDUP_FACTOR)	
 	Spring.SetUnitRulesParam(unitID, "selfMaxAccelerationChange", BOOSTUP_FACTOR)	
 	-- Spring.MoveCtrl.SetAirMoveTypeData(unitID, "maxAcc", 3)
-	GG.attUnits[unitID] = true
 	GG.UpdateUnitAttributes(unitID)
 end
 
@@ -112,16 +112,22 @@ end
 function script.FireWeapon(num)
 	if num == 1 then
 		shotCycle = 1 - shotCycle
-		EmitSfx( flare[shotCycle], UNIT_SFX3 )
+		EmitSfx(flare[shotCycle], UNIT_SFX3)
 	elseif num == 2 then
-		EmitSfx( flare2, UNIT_SFX3 )
+		EmitSfx(flare2, UNIT_SFX3)
 	elseif num == 3 then
-		EmitSfx( missile, UNIT_SFX2 )
+		EmitSfx(missile, UNIT_SFX2)
 	end
 end
 
-function script.BlockShot(num)
-	return (GetUnitValue(COB.CRASHING) == 1)
+function script.BlockShot(num, targetID)
+	if (GetUnitValue(COB.CRASHING) == 1) then
+		return true
+	end
+	if num == 2 then
+		return GG.OverkillPrevention_CheckBlock(unitID, targetID, 133, 35)
+	end
+	return false
 end
 
 function script.Killed(recentDamage, maxHealth)

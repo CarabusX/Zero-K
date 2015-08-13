@@ -79,6 +79,9 @@ unitDef = {
         smoothradius = [[256]],
         detachmentradius = [[256]],
         smoothmult   = [[1]],
+
+		stats_hide_dps = 1, -- one use
+		stats_hide_reload = 1,
       },
 	  
       damage                  = {
@@ -89,6 +92,7 @@ unitDef = {
       edgeEffectiveness       = 0.4,
       explosionGenerator      = [[custom:bull_fade]],
       fireStarter             = 0,
+      flightTime              = 100,
       interceptedByShieldType = 1,
       levelGround             = false,
       model                   = [[wep_seismic.s3o]],

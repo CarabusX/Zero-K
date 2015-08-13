@@ -42,13 +42,57 @@ NOTE FOR OTHER GAME DEVS:
 	If you're not using them (likely), remove all lines containing that function.
 --]]
 
+-- Chili classes
+local Chili
+local Button
+local Label
+local Colorbars
+local Checkbox
+local Window
+local Panel
+local StackPanel
+local TextBox
+local Image
+local Progressbar
+local Control
+
+-- Chili instances
+local screen0
+local window		--main window (invisible)
+local fakewindow	--visible Panel
+local menuTabRow	--parent row of tabs
+local menuTabs = {}		--buttons
+local commands_main	--parent column of command buttons
+local sp_commands = {}	--buttons
+local states_main	--parent row of state buttons
+local sp_states = {}	--buttons
+local buildRow	--row of build queue buttons
+local buildRowButtons = {}	--contains arrays indexed by number 1 to MAX_COLUMNS, each of which contains three subobjects: button, label and image
+local buildProgress	--Progressbar, child of buildRowButtons[1].image; updates every gameframe
+local buildRow_dragDrop = {nil,nil,nil} --current buildqueue that is being dragged by user.
+
+local buildRow_visible = false
+local buildQueue = {}	--build order table of selectedFac
+local buildQueueUnsorted = {}	--puts all units of same type into single index; thus no sequence
+
+local gridLocation = {}
+
 ------------------------
 --  CONFIG
 ------------------------
 ------------------------
 options_path = 'Settings/HUD Panels/Command Panel'
-options_order = { 'disablesmartselect', 'hidetabs', 'unitstabhotkey', 'unitshotkeyrequiremeta', 'unitshotkeyaltaswell', 'tab_factory', 'tab_economy', 'tab_defence', 'tab_special','old_menu_at_shutdown'}
+options_order = { 'background_opacity', 'disablesmartselect', 'hidetabs', 'unitstabhotkey', 'unitshotkeyrequiremeta', 'unitshotkeyaltaswell', 'tab_factory', 'tab_economy', 'tab_defence', 'tab_special','old_menu_at_shutdown'}
 options = {
+	background_opacity = {
+		name = "Opacity",
+		type = "number",
+		value = 0.8, min = 0, max = 1, step = 0.01,
+		OnChange = function(self)
+			fakewindow.backgroundColor = {1,1,1,self.value}
+			fakewindow:Invalidate()
+		end,
+	},
 	disablesmartselect = {
 		name = 'Disable Smart Tab Select',
 		type = 'bool',
@@ -263,41 +307,6 @@ local reloadableButton = {
 	[CMD_JUMP] = {progress=0,status=nil},
 }
 
--- Chili classes
-local Chili
-local Button
-local Label
-local Colorbars
-local Checkbox
-local Window
-local Panel
-local StackPanel
-local TextBox
-local Image
-local Progressbar
-local Control
-
--- Chili instances
-local screen0
-local window		--main window (invisible)
-local fakewindow	--visible Panel
-local menuTabRow	--parent row of tabs
-local menuTabs = {}		--buttons
-local commands_main	--parent column of command buttons
-local sp_commands = {}	--buttons
-local states_main	--parent row of state buttons
-local sp_states = {}	--buttons
-local buildRow	--row of build queue buttons
-local buildRowButtons = {}	--contains arrays indexed by number 1 to MAX_COLUMNS, each of which contains three subobjects: button, label and image
-local buildProgress	--Progressbar, child of buildRowButtons[1].image; updates every gameframe
-local buildRow_dragDrop = {nil,nil,nil} --current buildqueue that is being dragged by user.
-
-local buildRow_visible = false
-local buildQueue = {}	--build order table of selectedFac
-local buildQueueUnsorted = {}	--puts all units of same type into single index; thus no sequence
-
-local gridLocation = {}
-
 -- arrays with commands to be displayed 
 local n_common = {}
 local n_factories = {}
@@ -343,6 +352,9 @@ local function ClickFunc(button, x, y, mouse)
 		local index = Spring.GetCmdDescIndex(button.cmdid)
 		if index then
 			Spring.SetActiveCommand(index,mb,left,right,alt,ctrl,meta,shift)
+			if alt and button.isStructure and WG.Terraform_SetPlacingRectangle then
+				WG.Terraform_SetPlacingRectangle(-button.cmdid)
+			end
 		end
 	end
 end
@@ -353,6 +365,7 @@ end
 local function MakeButton(container, cmd, insertItem, index)
 	local isState = (cmd.type == CMDTYPE.ICON_MODE and #cmd.params > 1) or states_commands[cmd.id]	--is command a state toggle command?
 	local isBuild = (cmd.id < 0)
+	local isStructure = (cmd.id < 0) and menuChoice ~= 1 and menuChoice ~= 6 
 	local gridHotkeyed = not isState and menuChoice ~= 1 and menuChoice ~= 6 
 	local text
 	local texture
@@ -451,6 +464,7 @@ local function MakeButton(container, cmd, insertItem, index)
 			isDisabled = cmd.disabled;
 			tooltip = tooltip;
 			cmdid = cmd.id;
+			isStructure = isStructure;
 			OnClick = {function(self, x, y, mouse) ClickFunc(self, x, y, mouse) end}
 		}
 		if (isState) then 
@@ -486,7 +500,7 @@ local function MakeButton(container, cmd, insertItem, index)
 				autosize=true; -- this (autosize=true) allow text to be truncated/cut off if button size is too small (prevent a wall-of-text on build icon if button is too small)
 				align="left";
 				valign="bottom";
-				caption = string.format("%d m", UnitDefs[-cmd.id].metalCost);
+				caption = string.format("%d", UnitDefs[-cmd.id].metalCost);
 				fontSize = 11;
 				fontShadow = true;
 			}		
@@ -600,7 +614,7 @@ local function ProcessCommand(cmd)
 			n_defense[#n_defense+1] = cmd
 		elseif special_commands[cmd.id] then
 			n_special[#n_special+1] = cmd
-		elseif UnitDefs[-(cmd.id)] then
+		elseif cmd.id and UnitDefs[-(cmd.id)] then
 			n_units[#n_units+1] = cmd
 		else
 			n_common[#n_common+1] = cmd	--shove unclassified stuff in common
@@ -614,9 +628,19 @@ local function RemoveChildren(container)
 	end
 end 
 
--- compared real chili container with new commands and update accordingly
-local function UpdateContainer(container, nl, columns) 
-	if not columns then columns = MAX_COLUMNS end 
+-- Compare chili container with required commands to see if an update is required.
+
+-- These two functions are split in two for a good reason. The function MakeButton
+-- is able to use cached buttons, it does this by setting the parent of a button
+-- for the desired command. If, for example, the new first row should contain a
+-- button that was on the old second row then the parent will be reassigned to 
+-- the first row before the second row had a chance to check whether it should update.
+-- This would cause subsequent rows to fail to update and thus be left with wide 
+-- or incorrect buttons.
+
+-- The solution is to check whether all the containers require updating before
+-- modifying any of the containers.
+local function SetContainerNeedUpdate(container, nl)
 	local cnt = 0 
 	local needUpdate = false 
 	local dif = {}
@@ -639,9 +663,16 @@ local function UpdateContainer(container, nl, columns)
 			needUpdate = true 
 			break
 		end 
+	end
+	container.needUpdate = needUpdate
+end
+
+local function UpdateContainer(container, nl, columns) 
+	if not columns then 
+		columns = MAX_COLUMNS 
 	end 
-	
-	if needUpdate then 
+
+	if container.needUpdate then 
 		RemoveChildren(container) 
 		for i=1, #nl do 
 			MakeButton(container, nl[i], true, i)
@@ -866,6 +897,9 @@ local function ManageStateIcons()
 		end
 	end
 	for i=1, numStateColumns do
+		SetContainerNeedUpdate(sp_states[i], stateCols[i])
+	end
+	for i=1, numStateColumns do
 		UpdateContainer(sp_states[i], stateCols[i], MAX_STATE_ROWS)
 	end
 end
@@ -895,6 +929,9 @@ local function ManageCommandIcons(useRowSort)
 				end
 			end
 		end	
+	end
+	for i=1, numRows do
+		SetContainerNeedUpdate(sp_commands[i], commandRows[i])
 	end
 	for i=1, numRows do
 		UpdateContainer(sp_commands[i], commandRows[i], MAX_COLUMNS)
@@ -1123,7 +1160,6 @@ end
 
 function widget:KeyPress(key, modifier, isRepeat)
 	if (hotkeyMode) and not isRepeat then 
-		local thingsDone = false
 		local pos = gridKeyMap[key]
 		if pos and sp_commands[pos[1]] and sp_commands[pos[1]].children[pos[2]] then
 			local cmdid = sp_commands[pos[1]].children[pos[2]]
@@ -1133,16 +1169,14 @@ function widget:KeyPress(key, modifier, isRepeat)
 					local index = Spring.GetCmdDescIndex(cmdid)
 					if index then
 						Spring.SetActiveCommand(index,1,true,false,false,false,false,false)
-						thingsDone = true
 					end
 				end
 			end
 		end
-		hotkeyMode = false
 		menuChoice = 1 -- auto-return to orders to make it clear hotkey time is over
 		Update(true)
 		ColorTabs()
-		return thingsDone 
+		return (pos and true) or false 
 	elseif menuChoice == 6 and options.unitstabhotkey.value and selectedFac then
 		local pos = gridKeyMap[key]
 		if pos and pos[1] ~= 3 and sp_commands[pos[1]] and sp_commands[pos[1]].children[pos[2]] then
@@ -1349,11 +1383,12 @@ function widget:Initialize()
 		draggable = false,
 		resizable = false,
 		padding = {0, 0, 0, 0},
-		backgroundColor = {1, 1, 1, 0.8},
+		backgroundColor = {1, 1, 1, options.background_opacity.value},
 --		skinName  = "DarkGlass",
 	}
 
 	menuTabRow = StackPanel:New{
+		name = "Integral menuTabRow",
 		parent = window,
 		resizeItems = true;
 		columns = 6;
@@ -1404,6 +1439,7 @@ function widget:Initialize()
 	}
 	for i=1,numRows do
 		sp_commands[i] = StackPanel:New{
+			name = "sp_commands " .. i,
 			parent = commands_main,
 			resizeItems = true;
 			orientation   = "horizontal";
@@ -1439,6 +1475,7 @@ function widget:Initialize()
 	}
 	for i=1, numStateColumns do
 		sp_states[i] = StackPanel:New {
+			name = "sp_states " .. i,
 			parent = states_main,
 			resizeItems = true;
 			orientation   = "vertical";
@@ -1586,7 +1623,7 @@ function widget:GameFrame(n)
 			if not manualfireweapon.status then
 				local _,_, weaponReloadFrame, _, _ = spGetUnitWeaponState(unitID, 3-reverseCompat) --Note: weapon no.3 is by ZK convention is usually used for user controlled weapon
 				local isManualFire, reloadTime = IsWeaponManualFire(unitID, 3)
-				if isManualFire then
+				if isManualFire and weaponReloadFrame then
 					if weaponReloadFrame > currentFrame then
 						manualfireweapon.status = false
 						local remainingTime = (weaponReloadFrame - currentFrame)*1/30

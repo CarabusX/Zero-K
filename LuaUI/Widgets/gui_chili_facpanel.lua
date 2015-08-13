@@ -1,6 +1,6 @@
 -------------------------------------------------------------------------------
 
-local version = "v0.013"
+local version = "v0.019"
 
 function widget:GetInfo()
   return {
@@ -52,16 +52,10 @@ local echo = Spring.Echo
 --options
 
 local function RecreateFacbar() end
+local function UpdateFactoryList () end
 
 options_path = 'Settings/HUD Panels/FactoryPanel'
 options = {
-	maxVisibleBuilds = {
-		type = 'number',
-		name = 'Visible Units in Que',
-		desc = "The maximum units to show in the factory's queue",
-		min = 2, max = 14,
-		value = 5,
-	},	
 	
 	buttonsize = {
 		type = 'number',
@@ -76,11 +70,26 @@ options = {
 		type = "number",
 		value = 1, min = 0, max = 1, step = 0.01,
 		OnChange = function(self)
-			window_facbar.color = {0,0,0,self.value}
+			window_facbar.color = {1,1,1,self.value}
 			window_facbar.caption = self.value == 0 and '' or 'Factories'
 			window_facbar:Invalidate()
 		end,
 	},
+	showAllPlayers = {
+		name = "Show All Players",
+		type = 'bool',
+		desc = 'When spectating, show the factory queues of all players. When disabled, only shows the factory queue of the currently spectated player.',
+		value = false,
+		OnChange = function() UpdateFactoryList() end,
+	};
+	
+	showETA = {
+		name = "Show ETA",
+		type = 'bool',
+		desc = 'Show ETA for the unit currently being built.',
+		value = true,
+		OnChange = function() RecreateFacbar() end,
+	};
 }
 
 -------------------------------------------------------------------------------
@@ -89,7 +98,7 @@ options = {
 
 local facs = {}
 local facsByUnitId = {}
-local unfinished_facs = {}
+--local unfinished_facs = {}
 local pressedFac  = -1
 local waypointFac = -1
 local waypointMode = 0   -- 0 = off; 1=lazy; 2=greedy (greedy means: you have to left click once before leaving waypoint mode and you can have units selected)
@@ -101,8 +110,9 @@ local inTweak  = false
 local leftTweak, enteredTweak = false, false
 local cycle_half_s = 1
 local cycle_2_s = 1
-local updateQSoon
+local updateQSoon={}
 local lmx,lmy=-1,-1
+local showAllPlayers
 
 -------------------------------------------------------------------------------
 -- SOUNDS
@@ -141,7 +151,43 @@ local spGetMouseState	= Spring.GetMouseState
 
 local spGetFullBuildQueue = Spring.GetFullBuildQueue
 
-local tts 	= Spring.Utilities.TableToString
+local tts 	= function (data)
+	 local str = ""
+
+    if(indent == nil) then
+        indent = 0
+    end
+	local indenter = "    "
+    -- Check the type
+    if(type(data) == "string") then
+        str = str .. (indenter):rep(indent) .. data .. "\n"
+    elseif(type(data) == "number") then
+        str = str .. (indenter):rep(indent) .. data .. "\n"
+    elseif(type(data) == "boolean") then
+        if(data == true) then
+            str = str .. "true"
+        else
+            str = str .. "false"
+        end
+    elseif(type(data) == "table") then
+        local i, v
+        for i, v in pairs(data) do
+            -- Check for a table in a table
+            if(type(v) == "table") then
+                str = str .. (indenter):rep(indent) .. i .. ":\n"
+                str = str .. Spring.Utilities.TableToString(v, indent + 2)
+            else
+                str = str .. (indenter):rep(indent) .. i .. ": " .. Spring.Utilities.TableToString(v, 0)
+            end
+        end
+	elseif(type(data) == "function") then
+		str = str .. (indenter):rep(indent) .. 'function' .. "\n"
+    else
+        echo(1, "Error: unknown data type: %s", type(data))
+    end
+
+    return str
+end
 
 local push  = table.insert
 
@@ -182,6 +228,7 @@ end
 local function UpdateFac(i, facInfo)
 	--local unitDefID = facInfo.unitDefID
 	
+	--[[
 	local unitBuildDefID = -1
 	local unitBuildID    = -1
 
@@ -192,15 +239,16 @@ local function UpdateFac(i, facInfo)
 		unitBuildDefID = GetUnitDefID(unitBuildID)
 		_, _, _, _, progress = GetUnitHealth(unitBuildID)
 		--unitDefID      = unitBuildDefID
-		--[[
+		
 	elseif (unfinished_facs[facInfo.unitID]) then
 		_, _, _, _, progress = GetUnitHealth(facInfo.unitID)
 		if (progress>=1) then 
 			progress = -1
 			unfinished_facs[facInfo.unitID] = nil
 		end
-		--]]
+		
 	end
+	--]]
 
 	--echo 'UpdateFac'
 	local buildList   = facInfo.buildList
@@ -266,6 +314,7 @@ local function AddFacButton(unitID, unitDefID, tocontrol, stackname)
 		children = {
 			unitID ~= 0 and
 				Image:New {
+					name='facIcon';
 					file = "#"..unitDefID, -- do not remove this line
 					--file = GetUnitPic(unitDefID),
 					file2 = WG.GetBuildIconFrame(UnitDefs[unitDefID]),
@@ -274,12 +323,26 @@ local function AddFacButton(unitID, unitDefID, tocontrol, stackname)
 					y = '5%',
 					width = '90%',
 					height = '90%',
+					children = {
+						Label:New {
+							name='etaLabel',
+							caption='';
+							autosize=false;
+							width="100%";
+							height="100%";
+							align="right";
+							valign="bottom";
+							
+							fontSize = 16;
+							fontShadow = true;
+						},
+					};
 				}
 			or nil,
 		},
 	}
 	
-	tocontrol:AddChild(facButton)
+	--tocontrol:AddChild(facButton)
 
 	local boStack = StackPanel:New{
 		name = stackname .. '_bo',
@@ -305,7 +368,7 @@ local function AddFacButton(unitID, unitDefID, tocontrol, stackname)
 		padding={0,0,0,0},
 		--margin={0, 0, 0, 0},
 		x=0,
-		width=700,
+		width=800,
 		height = options.buttonsize.value,
 		resizeItems = false,
 		orientation = 'horizontal',
@@ -313,24 +376,27 @@ local function AddFacButton(unitID, unitDefID, tocontrol, stackname)
 	}
 	local qStore = {}
 	
-	local facStack = StackPanel:New{
+	
+	local fullFacStack = StackPanel:New{
 		name = stackname,
 		itemMargin={0,0,0,0},
 		itemPadding={0,0,0,0},
 		padding={0,0,0,0},
-		--margin={0, 0, 0, 0},
-		
-		width=800,
-		--right=0,height='100%',
-		
+		width=900,
 		height = options.buttonsize.value*1.0,
 		resizeItems = false,
 		centerItems = false,
+		children = {
+			facButton,
+			qStack,
+		},
+		orientation = 'horizontal',
 	}
 	
-	facStack:AddChild( qStack )
-	tocontrol:AddChild( facStack )
-	return facButton, facStack, boStack, qStack, qStore
+	
+	tocontrol:AddChild( fullFacStack )
+	
+	return facButton, boStack, qStack, qStore
 end
 
 
@@ -457,7 +523,7 @@ local function MakeButton(unitDefID, facID, buttonId, facIndex, bqPos)
 				buildRow_dragDrop[1] = nil
 				
 				--UpdateFac(facIndex, facs[facIndex])
-				updateQSoon = true
+				updateQSoon[facIndex] = true
 			end},
 			OnMouseDown = { function(self,x,y,mouse) --for drag_drop feature
 				
@@ -513,7 +579,7 @@ local function MakeButton(unitDefID, facID, buttonId, facIndex, bqPos)
 						BuildRowButtonFunc(prevIndex, facs[i].qStack.children[prevIndex].cmdid, false, true,countTransfer, nil,facID) --then, remove queue on the left
 					end
 					buildRow_dragDrop[1] = nil
-					updateQSoon = true
+					updateQSoon[facIndex] = true
 				end
 			end},
 			
@@ -569,11 +635,12 @@ local function UpdateFacQ(i, facInfo)
 		unitBuildDefID = GetUnitDefID(unitBuildID)
 		_, _, _, _, progress = GetUnitHealth(unitBuildID)
 	end
-	local buildQueue  = Spring.GetFullBuildQueue(facInfo.unitID, options.maxVisibleBuilds.value +1)
+	local buildQueue  = Spring.GetFullBuildQueue(facInfo.unitID, 10)
 	RemoveChildren(facs[i].qStack)
 	
 	if not buildQueue  then return end
 	--echo'updating facq'
+	
 	for j,v in ipairs(buildQueue) do
 		for id, num in pairs(v) do
 			unitDefIDb = id
@@ -582,7 +649,23 @@ local function UpdateFacQ(i, facInfo)
 		end
 		local qButton = MakeButton(unitDefIDb, facInfo.unitID, j..'-'..unitDefIDb, i, j )
 		local qCount = qButton.childrenByName['count']
-		qCount:SetCaption(count > 1 and count or '')
+		
+		local altCheck = ''
+		local count2 = 0
+		if j==1 then
+			local commands = Spring.GetFactoryCommands(facInfo.unitID, count)
+			for k, command in ipairs(commands) do
+				if command.options.alt then
+					count2 = count2 + 1
+					count = count - 1
+				end
+			end
+		end
+		if count2 > 0 then
+			altCheck = altCheck .. '\255\255\150\0' .. (count > 1 and '|' or '') .. count2
+		end
+		
+		qCount:SetCaption(count > 1 and count .. altCheck or altCheck)
 		facs[i].qStack:AddChild(qButton)
 	end
 end
@@ -594,9 +677,21 @@ local function UpdateFacProg(i, facInfo)
 	if unitBuildID then
 		unitBuildDefID = GetUnitDefID(unitBuildID)
 		_, _, _, _, progress = GetUnitHealth(unitBuildID)
+		
+		if options.showETA.value then
+			local etaLabel = facInfo.facButton:GetChildByName('facIcon'):GetChildByName('etaLabel')
+			local timeLeft = WG.etaTable and WG.etaTable[unitBuildID] and WG.etaTable[unitBuildID].timeLeft
+			local etaStr = ''
+			if timeLeft then
+				local color = timeLeft > 0 and '\255\1\255\1' or '\255\255\1\1'
+				--etaStr = "\255\255\255\1ETA: " .. string.format('%s%d:%02d', color, timeLeft / 60, timeLeft % 60)
+				etaStr = string.format('%s%d:%02d', color, timeLeft / 60, timeLeft % 60)
+			end
+			etaLabel:SetCaption(etaStr)
+		end
 	end
 	
-	local firstButton = facs[i].qStack.children[1]
+	local firstButton = facs[i].qStack and facs[i].qStack.children[1]
 	if not firstButton then return end
 	if not unitBuildDefID then return end
 	local qBar = firstButton.childrenByName['bp'].childrenByName['prog']
@@ -644,7 +739,7 @@ local function WaypointHandler(x,y,button)
   --if not shift then waypointMode = 0; return true end
 end
 
-local function MakeClearButton(unitID)
+local function MakeClearButton(unitID, i)
 	return Button:New{
 		name = 'clearfac-' .. unitID,
 		tooltip='Clear Factory Queue',
@@ -661,6 +756,7 @@ local function MakeClearButton(unitID)
 					Spring.GiveOrderToUnit( unitID, CMD.REMOVE, { buildCommand.tag } , {"ctrl"} )
 				end
 				Spring.PlaySoundFile(sound_queue_clear, 0.97, 'ui')
+				updateQSoon[i] = true
 			end
 		},
 		children = {
@@ -678,20 +774,40 @@ local function MakeClearButton(unitID)
 	
 end
 
+function AddPlayerName(teamID)
+	local _, player,_,isAI = Spring.GetTeamInfo(teamID)
+	local playerName
+	if isAI then
+		local _, aiName, _, shortName = Spring.GetAIInfo(teamID)
+		playerName = aiName ..' ('.. shortName .. ')'
+	else
+		playerName = player and Spring.GetPlayerInfo(player) or 'noname'
+	end
+	local teamColor		= {Spring.GetTeamColor(teamID)}
+	stack_main:AddChild( Label:New{ caption = playerName, font = {outline = true; color = teamColor; } } )
+end
+
 RecreateFacbar = function()
 	enteredTweak = false
 	if inTweak then return end
 	
+	table.sort(facs, function(t1,t2)
+		return (t1.teamID == t2.teamID) and (t1.unitID < t2.unitID) or (t1.teamID < t2.teamID)
+	end)
+	
 	stack_main:ClearChildren()
+	local curTeam = -1
 	for i,facInfo in ipairs(facs) do
 		local unitDefID = facInfo.unitDefID
 		
+		--[[
 		local unitBuildDefID = -1
 		local unitBuildID    = -1
 		local progress
 
 		-- building?
-		unitBuildID      = GetUnitIsBuilding(facInfo.unitID)
+		--unitBuildID      = GetUnitIsBuilding(facInfo.unitID)
+		
 		if unitBuildID then
 			unitBuildDefID = GetUnitDefID(unitBuildID)
 			_, _, _, _, progress = GetUnitHealth(unitBuildID)
@@ -702,10 +818,14 @@ RecreateFacbar = function()
 				unfinished_facs[facInfo.unitID] = nil
 			end
 		end
-
-		local facButton, facStack, boStack, qStack, qStore = AddFacButton(facInfo.unitID, unitDefID, stack_main, i)
+		--]]
+		if showAllPlayers and facInfo.teamID ~= curTeam then
+			curTeam = facInfo.teamID 
+			AddPlayerName(curTeam)
+		end
+		local facButton,boStack, qStack, qStore = AddFacButton(facInfo.unitID, unitDefID, stack_main, i)
 		facs[i].facButton 	= facButton
-		facs[i].facStack 	= facStack
+		--facs[i].facStack 	= facStack
 		facs[i].boStack 	= boStack
 		facs[i].qStack 		= qStack
 		facs[i].qStore 		= qStore
@@ -716,15 +836,14 @@ RecreateFacbar = function()
 		local buildQueue  = GetBuildQueue(facInfo.unitID)
 		for j,unitDefIDb in ipairs(buildList) do
 			local unitDefIDb = unitDefIDb
-			boStack:AddChild( MakeButton(unitDefIDb, facInfo.unitID, unitDefIDb) )
+			boStack:AddChild( MakeButton(unitDefIDb, facInfo.unitID, unitDefIDb, i) )
 		end
-		boStack:AddChild( MakeClearButton( facInfo.unitID ) )
+		boStack:AddChild( MakeClearButton( facInfo.unitID, i ) )
+		
+		updateQSoon[i] = true
+
 	end
 	
-	--stack_build:ClearChildren()
-	--stack_build.backgroundColor = {0,0,0,0}
-	
-	--stack_build:SetPos(options.buttonsize.value*1.2 )
 	stack_build.x = options.buttonsize.value*1.2
 
 	stack_main:Invalidate()
@@ -732,33 +851,38 @@ RecreateFacbar = function()
 	
 	widget:SelectionChanged(Spring.GetSelectedUnits())
 	
-	updateQSoon = true
 end
 
-local function UpdateFactoryList()
 
-  facs = {}
-  facsByUnitId = {}
+UpdateFactoryList = function()
 
-  local teamUnits = Spring.GetTeamUnits(myTeamID)
-  local totalUnits = #teamUnits
-
-  for num = 1, totalUnits do
-    local unitID = teamUnits[num]
-    local unitDefID = GetUnitDefID(unitID)
-    if UnitDefs[unitDefID].isFactory then
-		local bo =  UnitDefs[unitDefID] and UnitDefs[unitDefID].buildOptions
-		if bo and #bo > 0 then	
-		  push(facs,{ unitID=unitID, unitDefID=unitDefID, buildList=UnitDefs[unitDefID].buildOptions })
-		  local _, _, _, _, buildProgress = GetUnitHealth(unitID)
-		  if (buildProgress)and(buildProgress<1) then
-			unfinished_facs[unitID] = true
-		  end
-		end
-    end
-  end
-  
+	facs = {}
+	showAllPlayers = options.showAllPlayers.value and Spring.GetSpectatingState()
 	
+	--facsByUnitId = {}
+  
+	local teamUnits = showAllPlayers and Spring.GetAllUnits() or Spring.GetTeamUnits(myTeamID)
+	local totalUnits = #teamUnits
+  
+	for num = 1, totalUnits do
+		local unitID = teamUnits[num]
+		local unitDefID = GetUnitDefID(unitID)
+		if UnitDefs[unitDefID] and UnitDefs[unitDefID].isFactory then --failsafe in case using specfullview 0 and unitDefID becomes unavailable
+			local bo =  UnitDefs[unitDefID] and UnitDefs[unitDefID].buildOptions
+			if bo and #bo > 0 then
+				local teamID = Spring.GetUnitTeam(unitID)
+				push(facs,{ unitID=unitID, unitDefID=unitDefID, buildList=UnitDefs[unitDefID].buildOptions, teamID=teamID })
+				--[[
+				local _, _, _, _, buildProgress = GetUnitHealth(unitID)
+				if (buildProgress)and(buildProgress<1) then
+					unfinished_facs[unitID] = true
+				end
+				--]]
+			end
+		end
+	end
+	
+	  
 	RecreateFacbar()
 end
 
@@ -767,7 +891,7 @@ local function CheckRemoveFacStack()
 		local qStack = facs[pressedFac].qStack
 		stack_build:ClearChildren()
 		stack_build.backgroundColor = {0,0,0,0}
-		facs[pressedFac].facStack:AddChild(qStack)
+		--facs[pressedFac].facStack:AddChild(qStack)
 		
 		facs[pressedFac].facButton.backgroundColor = {1,1,1,1}
 		facs[pressedFac].facButton:Invalidate()
@@ -789,20 +913,27 @@ function widget:DrawWorld()
 	end
 end
 
-function widget:UnitCreated(unitID, unitDefID, unitTeam)
-  if (unitTeam ~= myTeamID) then
-    return
-  end
-
-  if UnitDefs[unitDefID].isFactory then
-	local bo =  UnitDefs[unitDefID] and UnitDefs[unitDefID].buildOptions
-	if bo and #bo > 0 then
-		push(facs,{ unitID=unitID, unitDefID=unitDefID, buildList=UnitDefs[unitDefID].buildOptions })
-		--UpdateFactoryList()
-		RecreateFacbar()
+function widget:UnitCreated(unitID, unitDefID, unitTeam, builderID)
+	if (unitTeam ~= myTeamID) and not showAllPlayers then
+		return
 	end
-  end
-  unfinished_facs[unitID] = true
+
+	if UnitDefs[unitDefID].isFactory then
+		local bo =  UnitDefs[unitDefID] and UnitDefs[unitDefID].buildOptions
+		if bo and #bo > 0 then
+			push(facs,{ unitID=unitID, unitDefID=unitDefID, buildList=UnitDefs[unitDefID].buildOptions, teamID=unitTeam })
+			--UpdateFactoryList()
+			RecreateFacbar()
+		end
+		--unfinished_facs[unitID] = true
+	end
+	
+	
+	local bdid = builderID and Spring.GetUnitDefID(builderID)
+    if UnitDefs[bdid] and UnitDefs[bdid].isFactory then
+		local i = facsByUnitId[builderID]
+		updateQSoon[i] = true
+	end
 end
 
 function widget:UnitGiven(unitID, unitDefID, unitTeam, oldTeam)
@@ -810,7 +941,7 @@ function widget:UnitGiven(unitID, unitDefID, unitTeam, oldTeam)
 end
 
 function widget:UnitDestroyed(unitID, unitDefID, unitTeam)
-  if (unitTeam ~= myTeamID) then
+  if (unitTeam ~= myTeamID) and not showAllPlayers then
     return
   end
   if UnitDefs[unitDefID].isFactory then
@@ -820,7 +951,7 @@ function widget:UnitDestroyed(unitID, unitDefID, unitTeam)
 		CheckRemoveFacStack()
 		
 		table.remove(facs,i)
-        unfinished_facs[unitID] = nil
+        --unfinished_facs[unitID] = nil
 		--UpdateFactoryList()
 		RecreateFacbar()
 		
@@ -851,14 +982,17 @@ function widget:Update()
 				if cycle_2_s == 1 then
 					UpdateFac(i, facInfo)
 				end
-				if updateQSoon then
+				if updateQSoon[i] then
 					UpdateFacQ(i, facInfo)
 				end
 			end
 		end
+		--[[
 		if updateQSoon then
 			updateQSoon = false
 		end
+		--]]
+		updateQSoon={}
 	end
 	
 	for i,facInfo in ipairs(facs) do
@@ -869,7 +1003,7 @@ function widget:Update()
 		enteredTweak = true
 		stack_main:ClearChildren()
 		for i = 1,5 do
-			local facButton, facStack, boStack, qStack, qStore = AddFacButton(0, 0, stack_main, i)
+			local facButton, boStack, qStack, qStore = AddFacButton(0, 0, stack_main, i)
 		end
 		stack_main:Invalidate()
 		stack_main:UpdateLayout()
@@ -903,11 +1037,13 @@ end
 
 
 function widget:UnitFromFactory(unitID, unitDefID, unitTeam, factID, factDefID, userOrders)
-	if unitTeam ~= myTeamID then
+	if unitTeam ~= myTeamID and not showAllPlayers then
 		return
 	end
-	--local i = facsByUnitId[unitID]
-	updateQSoon = true
+	local i = facsByUnitId[factID]
+	if i then
+		updateQSoon[i] = true
+	end
 end
 
 function widget:SelectionChanged(selectedUnits)
@@ -919,9 +1055,9 @@ function widget:SelectionChanged(selectedUnits)
 		for cnt, f in ipairs(facs) do 
 			if f.unitID == selectedUnits[1] then 
 				pressedFac = cnt
-				local qStack = facs[pressedFac].qStack
+				--local qStack = facs[pressedFac].qStack
 				local boStack = facs[pressedFac].boStack
-				facs[pressedFac].facStack:RemoveChild(qStack)
+				--facs[pressedFac].facStack:RemoveChild(qStack)
 				stack_build:AddChild(boStack)
 				stack_build.backgroundColor = {1,1,1,1}
 				facs[pressedFac].facButton.backgroundColor = magenta_table
@@ -932,7 +1068,7 @@ function widget:SelectionChanged(selectedUnits)
 		end
 	end
 	if pressedFac ~= -1 then
-		updateQSoon = true
+		updateQSoon[pressedFac] = true
 	end
 end
 
@@ -977,18 +1113,20 @@ function widget:Initialize()
 	ScrollPanel = Chili.ScrollPanel
 	screen0 = Chili.Screen0
 
-	stack_main = Grid:New{
+	stack_main = StackPanel:New{
 		y=0,
 		padding = {0,0,0,0},
 		itemPadding = {0, 0, 0, 0},
 		itemMargin = {0, 0, 0, 0},
-		width='100%',
+		width=800,
 		--height = '100%',
-		height=500;
+		height=20;
 		resizeItems = false,
-		orientation = 'horizontal',
+		orientation = 'vertical',
 		centerItems = false,
 		columns=2,
+		
+		autosize=true,
 	}
 	
 	stack_build = Panel:New{
@@ -996,7 +1134,7 @@ function widget:Initialize()
 		x=options.buttonsize.value*1.2 + 0, 
 		right=0,
 		--bottom=0,
-		height=500;
+		height='100%';
 		
 		padding = {4, 4, 4, 4},
 		backgroundColor = {0,0,0,0},
@@ -1041,8 +1179,11 @@ function widget:Initialize()
 		width="100%";
 		height="100%";
 		horizontalScrollbar=false;
+		--color = {0,0,0,0},
+		backgroundColor = {0,0,0,0},
+		borderColor = {0,0,0,0},
 		children = {
-			stack_build, --must be first so it's always above of the others (like frontmost layer)
+			--stack_build, --must be first so it's always above of the others (like frontmost layer)
 			--Label:New{ caption='Factories', fontShadow = true, },
 			stack_main,
 		},
@@ -1067,6 +1208,7 @@ function widget:Initialize()
 --		color = {0,0,0,1},
 		caption='Factories',
 		children = {
+			stack_build,
 			scrollpanel
 			--[[
 			stack_build, --must be first so it's always above of the others (like frontmost layer)

@@ -268,7 +268,6 @@ function gadget:UnitPreDamaged(unitID, unitDefID, unitTeam, damage, paralyzer, w
 			reloading[frame] = reloading[frame] or {count = 0, data = {}}
 			reloading[frame].count = reloading[frame].count + 1
 			reloading[frame].data[reloading[frame].count] = attackerID
-			GG.attUnits[attackerID] = true
 		end
 		
 		-- destroy the unit if the controller is set to destroy units
@@ -412,10 +411,6 @@ local function getMastermind(unitID)
   end
 end
 
--- morph uses this
-GG.getMastermind = getMastermind
-GG.setMastermind = setMastermind
-
 --------------------------------------------------------------------------------
 -- Unit Handling
 
@@ -481,6 +476,10 @@ function gadget:Initialize()
 
 	_G.drawing = drawing
 	_G.drawingByID = drawingByID
+	
+	-- morph uses this
+	GG.getMastermind = getMastermind
+	GG.setMastermind = setMastermind
 	
 	-- register command
 	gadgetHandler:RegisterCMDID(CMD_UNIT_KILL_SUBORDINATES)

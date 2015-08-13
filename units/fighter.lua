@@ -34,7 +34,12 @@ unitDef = {
     helptext_fr    = [[Capable de tirer en l'air ou au sol le Swift n'est efficace qu'en groupe. Sa puissance de feu limité le rends moins éfficace qu'un aeronef dédié au combat Air/Sol ou au Air/Air.]],
 	helptext_de    = [[Der Swift kann sowohl Land-, als auch Lufteinheiten treffen. Er eignet sich gut zur Verteidigung gegen Lufteinheiten, aber feindliche Flugabwehr und Luftüberlegenheitsjäger werden ihn schnell erlegen. Zuhauf kann er aber Landeinheiten durchaus auf die Nerven gehen.]],
 	helptext_pl    = [[Swift to wielozadaniowy mysliwiec szybkiego reagowania, ktory moze atakowac zarowno cele powietrzne, jak i naziemne. Jest bardzo zwinny i swietnie sobie radzi z wrogim lotnictwem dzieki samonaprowadzajacym rakietom i laserom, jednak jest bardzo lekki i latwo go zestrzelic. Posiada pasywny zaklocacz radaru oraz aktywny dopalacz.]],
+
 	specialreloadtime = [[850]],
+	boost_speed_mult = 5,
+	boost_accel_mult = 6,
+	boost_duration = 30, -- frames
+
 	midposoffset   = [[0 3 0]],
 	modelradius    = [[5]],
 	refuelturnradius = [[80]],
@@ -53,7 +58,7 @@ unitDef = {
   maneuverleashlength    = [[1280]],
   mass                   = 114,
   maxAcc                 = 0.5,
-  maxDamage              = 360,
+  maxDamage              = 300,
   maxVelocity            = 13,
   minCloakDistance       = 75,
   mygravity              = 1,
@@ -116,7 +121,7 @@ unitDef = {
       craterMult              = 0,
 
       damage                  = {
-        default = 7.2,
+        default = 7.1,
         subs    = 0.36,
       },
 
@@ -208,7 +213,7 @@ unitDef = {
       description      = [[Wreckage - Swift]],
       blocking         = true,
       category         = [[corpses]],
-      damage           = 360,
+      damage           = 300,
       energy           = 0,
       featureDead      = [[HEAP]],
       featurereclamate = [[SMUDGE01]],
@@ -229,7 +234,7 @@ unitDef = {
       description      = [[Debris - Swift]],
       blocking         = false,
       category         = [[heaps]],
-      damage           = 360,
+      damage           = 300,
       energy           = 0,
       featurereclamate = [[SMUDGE01]],
       footprintX       = 2,

@@ -26,6 +26,14 @@ unitDef = {
     helptext_fr    = [[L'Eraser est munis d'un brouilleur d'onde qui permet de cacher vos unités des radars enemis. Il est aussi munis d'un petit bouclier de camouflage qui permet de cacher vos unités du champ de vision enemis]],
     helptext_pl    = [[Eraser wyposazony jest w zaklocacz radaru, ktory ukrywa jednostki przed radarem. Posiada takze pole maskujace, która ukrywa pobliskie przyjazne jednostki przed wzrokiem wroga.]],
     helptext_de    = [[Der Eraser besitzt ein Gerät zum Stören feindlicher Radarwellen. Des Weiteren ist er mit einem kleinen Tarnschild ausgestattet, um nahe, freundliche Einheiten zu tarnen.]],
+
+    morphto = [[armjamt]],
+    morphtime = 30,
+
+    area_cloak = 1,
+    area_cloak_upkeep = 15,
+    area_cloak_radius = 440,
+    area_cloak_decloak_distance = 75,
   },
 
   energyUse              = 1.5,
@@ -44,6 +52,7 @@ unitDef = {
   objectName             = [[spherecloaker.s3o]],
   onoffable              = true,
   pushResistant          = 0,
+  script                 = [[spherecloaker.lua]],
   radarDistanceJam       = 440,
   seismicSignature       = 16,
   selfDestructAs         = [[BIG_UNITEX]],

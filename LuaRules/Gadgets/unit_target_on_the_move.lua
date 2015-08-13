@@ -1,3 +1,10 @@
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+if not gadgetHandler:IsSyncedCode() then
+	return
+end
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 
 function gadget:GetInfo()
   return {
@@ -13,10 +20,6 @@ end
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
-if (gadgetHandler:IsSyncedCode()) then --SYNCED
---------------------------------------------------------------------------------
---------------------------------------------------------------------------------
-
 local spInsertUnitCmdDesc   = Spring.InsertUnitCmdDesc
 local spGetUnitAllyTeam     = Spring.GetUnitAllyTeam
 local spSetUnitTarget       = Spring.SetUnitTarget
@@ -26,11 +29,16 @@ local spGetGroundHeight     = Spring.GetGroundHeight
 local spGetUnitDefID        = Spring.GetUnitDefID
 local spGetUnitLosState 	= Spring.GetUnitLosState
 local spGiveOrderToUnit     = Spring.GiveOrderToUnit
+local spSetUnitRulesParam	= Spring.SetUnitRulesParam
 
 local getMovetype = Spring.Utilities.getMovetype
 
 local CMD_WAIT = CMD.WAIT
 
+-- Constans
+local TARGET_NONE = 0
+local TARGET_GROUND = 1
+local TARGET_UNIT= 2
 --------------------------------------------------------------------------------
 -- Config
 
@@ -61,10 +69,12 @@ local unit = {count = 0, data = {}} -- data holds all unitID data
 
 local drawPlayerAlways = {}
 
-local deadUnitID = 0 
-
 --------------------------------------------------------------------------------
 -- Commands
+
+local allyTargetUnits = {
+	[UnitDefNames["corsumo"].id] = true,
+}
 
 include("LuaRules/Configs/customcmds.h.lua")
 
@@ -117,16 +127,40 @@ local function locationInRange(unitID, x, y, z, range)
     return range and ((ux - x)^2 + (uz - z)^2) < range^2
 end
 
-local function setTarget(data)
+local function clearTarget(unitID)
+	spSetUnitTarget(unitID, nil) -- The second argument is needed.
+	spSetUnitRulesParam(unitID,"target_type",TARGET_NONE)
+end
+
+if not Spring.Utilities.IsCurrentVersionNewerThan(98, 662) then
+	-- Reverse compatibility for versions earlier than
+	-- https://github.com/spring/spring/commit/b31de4c10ed7e9b9f4ec189a8337f8a8f5c5d499
+	clearTarget = function(unitID)
+		spSetUnitTarget(unitID,0)
+		spSetUnitRulesParam(unitID,"target_type",TARGET_NONE)
+	end
+end
+
+local function setTarget(data, sendToWidget)
     if spValidUnitID(data.id) then
         if not data.targetID then
             if locationInRange(data.id, data.x, data.y, data.z, data.range) then
                 spSetUnitTarget(data.id, data.x, data.y, data.z)
             end
-        elseif spValidUnitID(data.targetID) and spGetUnitAllyTeam(data.targetID) ~= data.allyTeam then
+			if sendToWidget then
+				spSetUnitRulesParam(data.id,"target_type",TARGET_GROUND)
+				spSetUnitRulesParam(data.id,"target_x",data.x)
+				spSetUnitRulesParam(data.id,"target_y",data.y)
+				spSetUnitRulesParam(data.id,"target_z",data.z)
+			end
+        elseif spValidUnitID(data.targetID) and (data.allyAllowed or (spGetUnitAllyTeam(data.targetID) ~= data.allyTeam)) then
             if (not Spring.GetUnitIsCloaked(data.targetID)) and unitInRange(data.id, data.targetID, data.range) then
                 spSetUnitTarget(data.id, data.targetID)
             end
+			if sendToWidget then
+				spSetUnitRulesParam(data.id,"target_type",TARGET_UNIT)
+				spSetUnitRulesParam(data.id,"target_id",data.targetID)
+			end
         else
             return false
         end
@@ -156,8 +190,9 @@ end
 
 local function addUnit(unitID, data)
 	if spValidUnitID(unitID) then
-        spSetUnitTarget(unitID,deadUnitID)
-        if setTarget(data) then
+		-- clear current traget
+        clearTarget(unitID)
+        if setTarget(data, true) then
             if unitById[unitID] then
                 unit.data[unitById[unitID]] = data
             else
@@ -173,11 +208,11 @@ local function removeUnit(unitID)
 	local unitDefID = spGetUnitDefID(unitID)
 	local ud = UnitDefs[unitDefID]
 	if not (unitDefID and waitWaitUnits[unitDefID]) then
-		spSetUnitTarget(unitID,deadUnitID)
+		clearTarget(unitID)
 	end
 	if unitDefID and validUnits[unitDefID] and unitById[unitID] then
 		if waitWaitUnits[unitDefID] then
-			spSetUnitTarget(unitID,deadUnitID)
+			clearTarget(unitID)
 			spGiveOrderToUnit(unitID,CMD_WAIT, {}, {})
 			spGiveOrderToUnit(unitID,CMD_WAIT, {}, {})
 		end
@@ -192,10 +227,6 @@ local function removeUnit(unitID)
 end
 
 function gadget:Initialize()
-
-    _G.unit = unit
-    _G.drawPlayerAlways = drawPlayerAlways
-    
 	-- register command
 	gadgetHandler:RegisterCMDID(CMD_UNIT_SET_TARGET)
     gadgetHandler:RegisterCMDID(CMD_UNIT_CANCEL_TARGET)
@@ -356,6 +387,7 @@ function gadget:AllowCommand(unitID, unitDefID, teamID, cmdID, cmdParams, cmdOpt
                     id = unitID, 
                     targetID = cmdParams[1], 
                     allyTeam = spGetUnitAllyTeam(unitID), 
+					allyAllowed = allyTargetUnits[unitDefID],
                     range = UnitDefs[unitDefID].maxWeaponRange,
 					alwaysSeen = tud and (tud.isBuilding == true or tud.maxAcc == 0),
                 })
@@ -381,7 +413,7 @@ function gadget:GameFrame(n)
         
         local toRemove = {count = 0, data = {}}
         for i = 1, unit.count do
-            if not setTarget(unit.data[i]) then
+            if not setTarget(unit.data[i], false) then
                 toRemove.count = toRemove.count + 1
                 toRemove.data[toRemove.count] = unit.data[i].id
             end
@@ -405,176 +437,4 @@ function gadget:GameFrame(n)
         end
 	end
 	
-end
-
---------------------------------------------------------------------------------
--- Drawing toggle goes through synced for no good reason
-
-function gadget:RecvLuaMsg(msg, playerID)
-    if msg == "target_move_selectionlow" then
-        drawPlayerAlways[playerID] = 5 --"Hide commands except if you select unit(s)"
-	elseif msg == "target_move_all" then
-        drawPlayerAlways[playerID] = 4 --"Always display commands for all units at all time."
-    elseif msg == "target_move_selection" then
-        drawPlayerAlways[playerID] = 3 --"Always display commands for selected units only, but if you press SHIFT it display commands for all units."
-	elseif msg == "target_move_shift" then
-        drawPlayerAlways[playerID] = 2 --"Hide commands of all units, but if you press SHIFT it display them again."
-    elseif msg == "target_move_minimal" then
-        drawPlayerAlways[playerID] = 1 --"Hide commands except if you select unit(s) and pressing SHIFT."
-    end
-end
-
---------------------------------------------------------------------------------
---------------------------------------------------------------------------------
-else -- UNSYNCED
---------------------------------------------------------------------------------
---------------------------------------------------------------------------------
-
-local glVertex 		= gl.Vertex
-local glPushAttrib  = gl.PushAttrib
-local glLineStipple = gl.LineStipple
-local glDepthTest   = gl.DepthTest
-local glLineWidth   = gl.LineWidth
-local glColor       = gl.Color
-local glBeginEnd    = gl.BeginEnd
-local glPopAttrib   = gl.PopAttrib
-local glCreateList  = gl.CreateList
-local glCallList    = gl.CallList
-local glDeleteList  = gl.DeleteList
-local GL_LINES      = GL.LINES
-
-local spIsUnitInView 		= Spring.IsUnitInView
-local spGetUnitPosition 	= Spring.GetUnitPosition
-local spGetUnitLosState 	= Spring.GetUnitLosState
-local spValidUnitID 		= Spring.ValidUnitID
-local spGetMyAllyTeamID 	= Spring.GetMyAllyTeamID 	
-local spGetMyTeamID         = Spring.GetMyTeamID
-local spIsUnitSelected      = Spring.IsUnitSelected
-local spGetModKeyState      = Spring.GetModKeyState
-local spIsGUIHidden         = Spring.IsGUIHidden
-local spGetGameFrame        = Spring.GetGameFrame
-local spGetSpectatingState  = Spring.GetSpectatingState
-local spGetSelectedUnitsCount = Spring.GetSelectedUnitsCount
-
-local myAllyTeam = spGetMyAllyTeamID()
-local myTeam = spGetMyTeamID()
-local myPlayerID = Spring.GetMyPlayerID()
-local defaultState = 1
-
-local function unitDraw(u1, u2)
-	local _,_,_,x1, y1, z1 = spGetUnitPosition(u1, true)
-	local _,_,_,x2, y2, z2 = CallAsTeam(myTeam, function () return spGetUnitPosition(u2, true) end)
-	glVertex(x1, y1, z1)
-	glVertex(x2, y2, z2)
-end
-
-local function unitDrawVisible(u1, u2)
-	local _,_,_,x1, y1, z1 = spGetUnitPosition(u1, true)
-	local _,_,_,x2, y2, z2 = spGetUnitPosition(u2, true)
-	glVertex(x1, y1, z1)
-	glVertex(x2, y2, z2)
-end
-
-local function terrainDraw(u, x, y, z)
-	local _,_,_,x1, y1, z1 = spGetUnitPosition(u, true)
-    glVertex(x1, y1, z1)
-	glVertex(x,y,z)
-end
-
-local function CommandVisibleState(unitID,mode, shift)
-	local drawThis =(mode==4) or
-					(mode==2 and shift) or 
-					(mode==3 and (spIsUnitSelected(unitID) or shift)) or
-					(mode==1 and (spIsUnitSelected(unitID) and shift)) or
-					(mode==5 and spIsUnitSelected(unitID))
-	return drawThis
-end
-
-local function drawCommands(unit, mode,shift)
-    for i = 1, unit.count do
-        local u = unit.data[i]
-        if select(1, spGetSpectatingState()) then
-            if CommandVisibleState(u.id, mode, shift) and spValidUnitID(u.id) then
-                if not u.targetID then
-                    terrainDraw(u.id, u.x, u.y, u.z)
-                elseif spValidUnitID(u.targetID) then
-                    unitDrawVisible(u.id, u.targetID)
-                end
-            end
-        elseif u.allyTeam == myAllyTeam and CommandVisibleState(u.id, mode, shift) and spValidUnitID(u.id) then
-            if not u.targetID then
-                terrainDraw(u.id, u.x, u.y, u.z)
-            elseif spValidUnitID(u.targetID) then
-                local los = spGetUnitLosState(u.targetID, myAllyTeam, false)
-                if los and (los.los or los.radar) then
-                    unitDraw(u.id, u.targetID)
-                end
-            end
-        end
-    end
-end
-
-local drawList = 0
-local drawAnything = false
-
-function gadget:DrawWorld()
-    if drawAnything then
-        glPushAttrib(GL.LINE_BITS)
-        glLineStipple(true)
-        glDepthTest(false)
-        glLineWidth(1.4)
-        glColor(1, 0.75, 0, 1)
-        glCallList(drawList)
-        glColor(1,1,1,1)
-        glLineStipple(false)
-        glPopAttrib()
-    end
-end
-
-local function gameFrame()
-    if spIsGUIHidden() then 
-        drawAnything = false
-		return 
-    end
-    local unit = SYNCED.unit
-    if unit then
-		local alt,ctrl,meta,shift = spGetModKeyState()
-        local mode = SYNCED.drawPlayerAlways[myPlayerID] or defaultState
-		
-        if (mode==4) or 
-		(mode==2 and shift) or 
-		(mode==3 and (spGetSelectedUnitsCount()>0 or shift)) or
-		(mode==1 and (spGetSelectedUnitsCount()>0 and shift)) or 
-		(mode==5 and spGetSelectedUnitsCount()>0)
-		then
-            
-            drawAnything = false
-            for i = 1, unit.count do
-                local u = unit.data[i]
-                if (u.allyTeam == myAllyTeam or select(1, spGetSpectatingState())) and CommandVisibleState(u.id,mode, shift) and spValidUnitID(u.id) then
-                    drawAnything = true
-                    break
-                end
-            end
-            
-            if drawAnything then
-                glDeleteList(drawList)
-                drawList = glCreateList(function () glBeginEnd(GL_LINES, drawCommands, unit, mode,shift) end)
-                return
-            end
-        end
-    end
-    
-    drawAnything = false
-end
-
-local lastFrame = 0
-function gadget:Update()
-    local f = spGetGameFrame()
-    if lastFrame < f then
-        lastFrame = f
-        gameFrame()
-    end
-end
-
 end

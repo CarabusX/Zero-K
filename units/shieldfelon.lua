@@ -29,6 +29,7 @@ unitDef = {
   idleAutoHeal        = 5,
   idleTime            = 1800,
   leaveTracks         = true,
+  losEmitHeight       = 25,
   maxDamage           = 1400,
   maxSlope            = 36,
   maxVelocity         = 1.5,
@@ -78,7 +79,7 @@ unitDef = {
       name                    = [[Energy Shield]],
 
       damage                  = {
-        default = 10,
+        default = 9.79,
       },
 
       exteriorShield          = true,
@@ -105,7 +106,11 @@ unitDef = {
       areaOfEffect            = 8,
       craterBoost             = 0,
       craterMult              = 0,
-      cylinderTargeting      = 0,
+      cylinderTargeting       = 0,
+
+      customParams            = {
+        shield_drain = 75,
+      },
 
       damage                  = {
         default        = 108.4,
@@ -124,7 +129,6 @@ unitDef = {
       soundStart              = [[weapon/constant_electric]],
       soundStartVolume        = 9,
       soundTrigger            = true,
-      targetMoveError         = 0,
       texture1                = [[corelaser]],
       thickness               = 2,
       turret                  = true,

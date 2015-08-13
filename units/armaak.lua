@@ -17,7 +17,12 @@ unitDef = {
   corpse              = [[DEAD]],
 
   customParams        = {
-    canjump        = [[1]],
+    canjump            = 1,
+    jump_range         = 400,
+    jump_speed         = 6,
+    jump_reload        = 10,
+    jump_from_midair   = 0,
+
     description_bp = [[Robô anti-ar pesado]],
     description_de = [[Flugabwehr Springer]],
     description_fi = [[Korkeatehoinen ilmatorjuntarobotti]],
@@ -96,8 +101,8 @@ unitDef = {
 	  },
 
       damage                  = {
-        default = 0.8,
-        planes  = 8,
+        default = 0.78,
+        planes  = 7.8,
         subs    = 0.5,
       },
 
@@ -146,8 +151,8 @@ unitDef = {
 	  },
 
       damage                  = {
-        default = 1.67,
-        planes  = 16.7,
+        default = 1.636,
+        planes  = 16.36,
         subs    = 0.94,
       },
 

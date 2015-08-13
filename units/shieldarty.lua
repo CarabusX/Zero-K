@@ -79,20 +79,20 @@ unitDef = {
       craterMult              = 0,
 
 	  customParams        = {
-	    disarmDamageMult = 3,
+	    disarmDamageMult = 1,
 		disarmDamageOnly = 1,
 		disarmTimer      = 8, -- seconds
 	  
 	  },
 	  
       damage                  = {
-        default        = 500,
+        default        = 1500,
       },
 
       edgeEffectiveness       = 0.4,
       explosionGenerator      = [[custom:WHITE_LIGHTNING_BOMB]],
       fireStarter             = 0,
-      flighttime              = 12,
+      flightTime              = 6,
 	  impactOnly              = true,
       impulseBoost            = 0,
       impulseFactor           = 0,
@@ -113,7 +113,7 @@ unitDef = {
       weaponAcceleration      = 300,
       weaponTimer             = 1,
       weaponType              = [[StarburstLauncher]],
-      weaponVelocity          = 7000,
+      weaponVelocity          = 1500,
     },
   },
 

@@ -91,6 +91,12 @@ if UnitDefNames["factoryamph"] then
 	end
 end
 
+for i=1, #UnitDefs do
+	if (UnitDefs[i].customParams.level) then
+		dropableUnits[i] = true
+	end
+end
+
 local transportPhase = {}
 local giveLOAD_order = {}
 local giveDROP_order = {}
@@ -393,8 +399,9 @@ else
 include("LuaRules/Configs/customcmds.h.lua")
 
 function gadget:Initialize()
-  Spring.SetCustomCommandDrawData(CMD_EXTENDED_LOAD, CMD.LOAD_UNITS, {0,0.6,0.6,1},true)
-  Spring.SetCustomCommandDrawData(CMD_EXTENDED_UNLOAD, CMD.UNLOAD_UNITS, {0.6,0.6,0,1})
+	Spring.SetCustomCommandDrawData(CMD_EXTENDED_LOAD, CMD.LOAD_UNITS, {0,0.6,0.6,1},true)
+	Spring.SetCustomCommandDrawData(CMD_EXTENDED_UNLOAD, CMD.UNLOAD_UNITS, {0.6,0.6,0,1})
+	gadgetHandler:RemoveGadget()
 end
 
 --------------------------------------------------------------------------------

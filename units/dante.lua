@@ -24,7 +24,7 @@ unitDef = {
 	description_pl = [[Robot szturmowo-bojowy]],
     helptext       = [[The Dante is a heavy combat unit that specializes in getting close and melting its target. Its flamethrower and twin heatrays aren't extraordinary, but its incendiary rockets can be fired in a salvo of twenty that devastates a wide swath of terrain.]],
     helptext_fr    = [[]],
-	helptext_de    = [[Der Dante ist eine schwere Sturmeinheit f? den Fronteinsatz, wenn herkömmliche Mittel versagen. Sein Flammenwerfer und doppelläufiger Heat Ray sind zwar nichts besonderes, doch seine Brandraketen können in 20-Schuss Salven breite Schneisen in das Gelände schlagen.]],
+	helptext_de    = [[Der Dante ist eine schwere Sturmeinheit f? den Fronteinsatz, wenn herkÃ¶mmliche Mittel versagen. Sein Flammenwerfer und doppellÃ¤ufiger Heat Ray sind zwar nichts besonderes, doch seine Brandraketen kÃ¶nnen in 20-Schuss Salven breite Schneisen in das GelÃ¤nde schlagen.]],
 	helptext_pl    = [[Dante to ciezka jednostka bojowa, ktora specjalizuje sie w zadawaniu ciezkich obrazen w bezposredniej walce. Posiada promien cieplny, miotacz ognia i rakiety podpalajace, ktore moze wystrzelic w salwie.]],
   },
 
@@ -35,6 +35,7 @@ unitDef = {
   idleAutoHeal        = 5,
   idleTime            = 1800,
   leaveTracks         = true,
+  losEmitHeight       = 35,
   mass                = 716,
   maxDamage           = 11000,
   maxSlope            = 36,
@@ -193,10 +194,8 @@ unitDef = {
       weaponVelocity          = 500,
     },
 
-
     NAPALM_ROCKETS       = {
       name                    = [[Napalm Rockets]],
-      accuracy                = 1500,
       areaOfEffect            = 228,
       burst                   = 2,
       burstrate               = 0.1,
@@ -210,7 +209,7 @@ unitDef = {
 	  },
 	  
       damage                  = {
-        default = 120,
+        default = 120.8,
         subs    = 6,
       },
 
@@ -218,7 +217,7 @@ unitDef = {
       explosionGenerator      = [[custom:napalm_koda]],
       fireStarter             = 250,
       fixedlauncher           = true,
-      flightTime              = 4,
+      flightTime              = 1.8,
       impulseBoost            = 0,
       impulseFactor           = 0.1,
       interceptedByShieldType = 2,
@@ -238,7 +237,7 @@ unitDef = {
       turnRate                = 8000,
       turret                  = true,
       weaponAcceleration      = 100,
-      weaponTimer             = 2.2,
+      weaponTimer             = 1.8,
       weaponType              = [[MissileLauncher]],
       weaponVelocity          = 800,
       wobble                  = 10000,
@@ -247,7 +246,6 @@ unitDef = {
 
     NAPALM_ROCKETS_SALVO = {
       name                    = [[Napalm Rocket Salvo]],
-      accuracy                = 1500,
       areaOfEffect            = 228,
       avoidFeature            = false,
       avoidFriendly           = false,
@@ -265,16 +263,16 @@ unitDef = {
 	  },
 	  
       damage                  = {
-        default = 120,
+        default = 120.8,
         subs    = 6,
       },
 
-      dance                   = 10,
+      dance                   = 15,
       edgeEffectiveness       = 0.75,
       explosionGenerator      = [[custom:napalm_koda]],
       fireStarter             = 250,
       fixedlauncher           = true,
-      flightTime              = 4,
+      flightTime              = 1.8,
       impulseBoost            = 0,
       impulseFactor           = 0.1,
       interceptedByShieldType = 2,
@@ -287,18 +285,19 @@ unitDef = {
       soundHit                = [[weapon/missile/rapid_rocket_hit]],
       soundStart              = [[weapon/missile/rapid_rocket_fire]],
       soundwater              = [[SplsSml]],
-      sprayAngle              = 3000,
+      sprayAngle              = 8000,
       startsmoke              = [[1]],
-      startVelocity           = 150,
+      startVelocity           = 200,
       tolerance               = 6500,
       tracks                  = false,
+      trajectoryHeight        = 0.18,
       turnRate                = 3000,
       turret                  = true,
       weaponAcceleration      = 100,
-      weaponTimer             = 2.2,
+      weaponTimer             = 1.8,
       weaponType              = [[MissileLauncher]],
       weaponVelocity          = 800,
-      wobble                  = 6000,
+      wobble                  = 8000,
     },
 
   },

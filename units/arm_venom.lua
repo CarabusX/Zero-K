@@ -102,7 +102,7 @@ unitDef = {
       },
 
       damage                  = {
-        default        = 600,
+        default        = 600.5,
       },
 
       duration                = 8,
@@ -121,7 +121,6 @@ unitDef = {
       rgbColor                = [[1 1 0.7]],
       soundStart              = [[weapon/lightning_fire]],
       soundTrigger            = true,
-      targetMoveError         = 0,
       texture1                = [[lightning]],
       thickness               = 10,
       turret                  = true,

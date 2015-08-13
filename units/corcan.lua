@@ -17,7 +17,12 @@ unitDef = {
   corpse              = [[DEAD]],
 
   customParams        = {
-    canjump        = [[1]],
+    canjump            = 1,
+    jump_range         = 400,
+    jump_speed         = 4,
+    jump_reload        = 10,
+    jump_from_midair   = 1,
+
     description_bp = [[Robô de assaulto]],
     description_fr = [[Robot d'Assaut]],
 	description_de = [[Melee Sturmangriff Springer]],
@@ -94,8 +99,7 @@ unitDef = {
       craterMult              = 0,
 
       damage                  = {
-        default = 300,
-        planes  = 300,
+        default = 300.1,
         subs    = 15,
       },
 
@@ -112,7 +116,6 @@ unitDef = {
       rgbColor                = [[1 0.25 0]],
       soundStart              = [[explosion/ex_large7]],
       targetborder            = 1,
-      targetMoveError         = 0.2,
       thickness               = 0,
       tolerance               = 10000,
       turret                  = true,

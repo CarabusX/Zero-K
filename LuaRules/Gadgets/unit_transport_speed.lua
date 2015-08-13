@@ -1,3 +1,10 @@
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+if not gadgetHandler:IsSyncedCode() then
+	return
+end
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 
 function gadget:GetInfo()
   return {
@@ -9,13 +16,6 @@ function gadget:GetInfo()
     layer     = 0,
     enabled   = true  --  loaded by default?
   }
-end
-
--------------------------------------------------------------------------------------
--------------------------------------------------------------------------------------
-
-if (not gadgetHandler:IsSyncedCode()) then
-    return
 end
 
 -------------------------------------------------------------------------------------
@@ -53,7 +53,6 @@ function gadget:UnitLoaded(unitID, unitDefID, unitTeam, transportID, transportTe
 			local speedFactor = math.min(1, 3 * mass[tudid]/(effectiveMass))
 			Spring.SetUnitRulesParam(transportID, "effectiveMass", effectiveMass)
 			Spring.SetUnitRulesParam(transportID, "selfMoveSpeedChange", speedFactor)
-			GG.attUnits[transportID] = true
 			GG.UpdateUnitAttributes(transportID)
 			
 			inTransport[unitID] = transportID

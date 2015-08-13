@@ -76,14 +76,21 @@ unitDef = {
       craterBoost             = 4,
       craterMult              = 3.5,
 
+      customParams            = {
+      lups_explodelife = 1.5,
+		stats_hide_dps = 1, -- meaningless
+		stats_hide_reload = 1,
+	  },
+	  
       damage                  = {
-        default = 3500,
+        default = 3502.5,
         subs    = 175,
       },
 
       edgeEffectiveness       = 0.4,
       explosionGenerator      = [[custom:NUKE_150]],
       fireStarter             = 0,
+      flightTime              = 20,
       impulseBoost            = 0,
       impulseFactor           = 0.4,
       interceptedByShieldType = 1,

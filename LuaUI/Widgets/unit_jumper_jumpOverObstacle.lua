@@ -1,4 +1,4 @@
-local version = "v0.506"
+local version = "v0.507"
 function widget:GetInfo()
   return {
     name      = "Auto Jump Over Terrain",
@@ -41,16 +41,15 @@ local jumpersToWatch = {}
 local jumpersToJump_Count = 0
 local jumpersUnitID = {}
 
-local jumperDefs = {}
-local excludedJumper = { corsumo = true,} --because unit like sumo can jump into ally blob and kill them all
-local jumpNames = VFS.Include("LuaRules/Configs/jump_defs.lua") --list of unit able to jump
-for name, data in pairs(jumpNames) do --convert UnitName list into unitDefID list (copied from unit_bomber_command.lua by KingRaptor)
-	if not excludedJumper[name] then
-		local unitDef = UnitDefNames[name]
-		if unitDef then 
-			jumperDefs[unitDef.id] = data
-		end
-	end
+local jumperDefs = VFS.Include("LuaRules/Configs/jump_defs.lua")
+
+local exclusions = {
+	UnitDefNames["corsumo"].id, -- has AoE damage on jump, could harm allies
+	--UnitDefNames["corsktl"].id -- jump is precious
+}
+
+for i = 1, #exclusions do
+	jumperDefs[exclusions[i]] = nil
 end
 
 function widget:Initialize()
@@ -89,7 +88,7 @@ function widget:GameFrame(n)
 			local unitID = jumpersToJump[k][2]
 			local validUnitID = spValidUnitID(unitID)
 			if not validUnitID then
-				MoveLastPositionToCurrentPosition(k,unitID)
+				DeleteEntryThenReIndex(k,unitID)
 				k = k -1
 			end
 			if validUnitID then
@@ -116,7 +115,7 @@ function widget:GameFrame(n)
 					--IS UNIT IDLE? skip--
 					local cmd_queue = spGetCommandQueue(unitID, -1);
 					if not (cmd_queue and cmd_queue[1]) then
-						MoveLastPositionToCurrentPosition(k,unitID)
+						DeleteEntryThenReIndex(k,unitID)
 						k = k -1
 						break; --a.k.a: Continue
 					end
@@ -138,7 +137,7 @@ function widget:GameFrame(n)
 						local cmd = cmd_queue[i]
 						local equivalentMoveCMD = ConvertCMDToMOVE({cmd})
 						if equivalentMoveCMD then
-							unitIsAttacking = cmd.id == CMD.ATTACK
+							unitIsAttacking = (cmd.id == CMD.ATTACK)
 							cmd_queue2 = equivalentMoveCMD
 							break
 						end
@@ -256,7 +255,7 @@ function widget:GameFrame(n)
 	end
 end
 
-function MoveLastPositionToCurrentPosition(k,unitID)
+function DeleteEntryThenReIndex(k,unitID)
 	--last position to current position
 	if k ~= jumpersToJump_Count then
 		local lastUnitID = jumpersToJump[jumpersToJump_Count][2]
@@ -508,7 +507,7 @@ end
 
 ------------------------------------------------------------
 ------------------------------------------------------------
-function widget:UnitFromFactory(unitID, unitDefID, unitTeam, factID, factDefID, userOrders) 
+function widget:UnitFinished(unitID,unitDefID,unitTeam)
 	if myTeamID==unitTeam and jumperDefs[unitDefID] and not jumpersUnitID[unitID] then
 		jumpersToJump_Count = jumpersToJump_Count + 1
 		jumpersToJump[jumpersToJump_Count] = {unitDefID,unitID}
@@ -525,7 +524,7 @@ function widget:UnitCommand(unitID, unitDefID, unitTeam, cmdID, cmdOpts, cmdPara
 				jumpersUnitID[unitID] = jumpersToJump_Count
 			end
 		end
-		if (cmdID == CMD.INSERT) then
+		if (cmdID == CMD.INSERT) then --detected our own command (indicate network delay have passed)
 			local issuedOrderContent = issuedOrderTo[unitID]
 			if issuedOrderContent and 
 			(cmdParams[4] == issuedOrderContent[2] and
